@@ -6,31 +6,17 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 
 // Validar sesión (username)
 if (empty($_SESSION['username'])) {
-    // Detectar ruta base para redirección
-    $redirectPath = (strpos($_SERVER['PHP_SELF'], '/modules/') !== false) ? '../../login.html' : 'login.html';
-    header("Location: $redirectPath");
+    require_once __DIR__ . '/config/paths.php';
+    header('Location: ' . loginUrl());
     exit;
 }
 
-// Incluir configuración de rutas si no está definida
-if (!isset($BASE_PATH)) {
-    // Detectar si estamos en un módulo (2 niveles de profundidad)
-    $currentFile = $_SERVER['PHP_SELF'];
-    if (strpos($currentFile, '/modules/') !== false) {
-        $BASE_PATH = '../../';
-    } else {
-        $BASE_PATH = '';
-    }
-}
+// Incluir bootstrap (rutas dinámicas) y permisos
+require_once __DIR__ . '/config/bootstrap.php';
+require_once PROJECT_ROOT . '/config/permissions.php';
+require_once PROJECT_ROOT . '/config/app_modules.php';
 
-// Si BASE_PATH está vacío, usar rutas relativas desde la raíz
-if (empty($BASE_PATH)) {
-    $BASE_PATH = '';
-}
-
-// Incluir sistema de permisos y visibilidad de módulos (tesis: Compras + Producción)
-require_once __DIR__ . '/config/permissions.php';
-require_once __DIR__ . '/config/app_modules.php';
+$BASE_PATH = $GLOBALS['BASE_PATH'] ?? computeBasePath();
 
 // Datos para el topbar
 $auth_user = [
@@ -44,14 +30,29 @@ $cargoNombre = $_SESSION['cargo_nombre'] ?? '';
 $idCargo = isset($_SESSION['id_cargo']) ? (int)$_SESSION['id_cargo'] : 0;
 
 // Variables para mostrar/ocultar secciones del menú según permisos
-$showCompras = has_permission('COMPRAS') || has_permission('PEDIDO_COMPRAS');
+$showCompras = has_permission('COMPRAS')
+    || has_permission('PEDIDO_COMPRAS')
+    || has_permission('PRESUPUESTO_COMPRAS')
+    || has_permission('ORDEN_COMPRA')
+    || has_permission('FACTURA_COMPRAS')
+    || has_permission('NOTAS_COMPRAS')
+    || has_permission('LIBRO_COMPRAS')
+    || has_permission('AJUSTES');
 $showVentas = UI_MODULO_VENTAS && (has_permission('VENTAS') || has_permission('PEDIDO_VENTAS'));
-$showProduccion = UI_MODULO_PRODUCCION && (has_permission('PRODUCCION') || has_permission('PEDIDO_PRODUCCION'));
-$showReferenciales = has_permission('REFERENCIALES');
+$showProduccion = UI_MODULO_PRODUCCION && (
+    has_permission('PRODUCCION')
+    || has_permission('PEDIDO_PRODUCCION')
+    || has_permission('ORDEN_PRODUCCION')
+    || has_permission('CONTROL_PRODUCCION')
+    || has_permission('PEDIDO_MATERIA_PRIMA')
+    || has_permission('REPOSICION_MATERIA')
+);
+$showReferenciales = has_permission('REFERENCIALES')
+    || has_permission('COMPRAS');
 $showInventario = has_permission('INVENTARIO');
 $showReportes = has_permission('REPORTES_COMPRAS')
     || has_permission('REPORTES_PRODUCCION')
-    || (UI_MODULO_VENTAS && has_permission('REPORTES_VENTAS'));
+    || has_permission('REPORTES_GENERALES');
 $showAdministracion = has_permission('ADMINISTRACION');
 $showNotas = has_permission('NOTAS_COMPRAS');
 
@@ -302,7 +303,7 @@ $showNotas = has_permission('NOTAS_COMPRAS');
                 </a>
             </li>
             <li class="nav-item active">
-                <a class="nav-link d-flex align-items-center" href="<?= $BASE_PATH ?>manual_de_usuario.pdf" target="_blank">
+                <a class="nav-link d-flex align-items-center" href="<?= $BASE_PATH ?>docs/manual/manual_usuario.pdf" target="_blank" title="Manual de Usuario (PDF)">
                     <img src="<?= $BASE_PATH ?>img/manual.svg" alt="Manual" class="sidebar-manual-icon">
                     <span>Manual de Usuario</span>
                 </a>
@@ -328,23 +329,26 @@ $showNotas = has_permission('NOTAS_COMPRAS');
                     <div id="collapseCompras" class="collapse" aria-labelledby="headingCompras" data-parent="#accordionSidebar">
                         <div class="bg-white py-2 collapse-inner rounded">
                             <?php if (has_permission('PEDIDO_COMPRAS')): ?>
-                            <a class="collapse-item" href="<?= $BASE_PATH ?>modules/pedido_compra/view.php">Pedidos de compras</a>
+                            <a class="collapse-item" href="<?= moduloUrl('pedido_compra') ?>">Pedidos de compras</a>
                             <?php endif; ?>
                             <?php if (has_permission('PRESUPUESTO_COMPRAS')): ?>
-                            <a class="collapse-item" href="<?= $BASE_PATH ?>modules/presupuesto/view.php">Presupuesto</a>
+                            <a class="collapse-item" href="<?= moduloUrl('presupuesto') ?>">Presupuesto</a>
                             <?php endif; ?>
                             <?php if (has_permission('ORDEN_COMPRA')): ?>
-                            <a class="collapse-item" href="<?= $BASE_PATH ?>modules/orden_compra/view.php">Orden de compra</a>
+                            <a class="collapse-item" href="<?= moduloUrl('orden_compra') ?>">Orden de compra</a>
                             <?php endif; ?>
                             <?php if (has_permission('FACTURA_COMPRAS')): ?>
-                            <a class="collapse-item" href="<?= $BASE_PATH ?>modules/gestionar_compras/view.php">Gestionar Compras</a>
+                            <a class="collapse-item" href="<?= moduloUrl('gestionar_compras') ?>">Gestionar Compras</a>
                             <?php endif; ?>
                             <?php if (has_permission('NOTAS_COMPRAS')): ?>
-                            <a class="collapse-item" href="<?= $BASE_PATH ?>modules/nota_credito/view.php">Nota Crédito/Débito</a>
-                            <a class="collapse-item" href="<?= $BASE_PATH ?>modules/nota_remision/view.php">Nota Remisión</a>
+                            <a class="collapse-item" href="<?= moduloUrl('nota_credito') ?>">Nota Crédito/Débito</a>
+                            <a class="collapse-item" href="<?= moduloUrl('nota_remision') ?>">Nota Remisión</a>
+                            <?php endif; ?>
+                            <?php if (has_permission('AJUSTES')): ?>
+                            <a class="collapse-item" href="<?= moduloUrl('ajustes') ?>">Ajustes de Stock</a>
                             <?php endif; ?>
                             <?php if (has_permission('LIBRO_COMPRAS')): ?>
-                            <a class="collapse-item" href="<?= $BASE_PATH ?>modules/libro_compras/view.php">Libro de Compras</a>
+                            <a class="collapse-item" href="<?= moduloUrl('libro_compras') ?>">Libro de Compras</a>
                             <?php endif; ?>
                         </div>
                     </div>
@@ -367,59 +371,58 @@ $showNotas = has_permission('NOTAS_COMPRAS');
                         <div class="bg-white py-2 collapse-inner rounded">
                             <h6 class="collapse-header">Operaciones</h6>
                             <?php if (has_permission('PEDIDO_PRODUCCION')): ?>
-                            <a class="collapse-item" href="<?= $BASE_PATH ?>modules/pedido_produccion/view.php">Pedidos de producción</a>
+                            <a class="collapse-item" href="<?= moduloUrl('pedido_produccion') ?>">Pedidos de producción</a>
                             <?php else: ?>
                             <span class="collapse-item text-muted small">Pedidos de producción</span>
                             <?php endif; ?>
+                            <?php if (has_permission('PEDIDO_MATERIA_PRIMA')): ?>
+                            <a class="collapse-item" href="<?= moduloUrl('pedido_materia_produccion') ?>">Pedidos de materia prima</a>
+                            <?php else: ?>
+                            <span class="collapse-item text-muted small">Pedidos de materia prima</span>
+                            <?php endif; ?>
                             <?php if (has_permission('ORDEN_PRODUCCION')): ?>
-                            <a class="collapse-item" href="<?= $BASE_PATH ?>modules/orden_produccion/view.php">Órdenes de producción</a>
+                            <a class="collapse-item" href="<?= moduloUrl('orden_produccion') ?>">Órdenes de producción</a>
                             <?php else: ?>
                             <span class="collapse-item text-muted small">Órdenes de producción</span>
                             <?php endif; ?>
-                            <?php if (has_permission('CONTROL_PRODUCCION')): ?>
-                            <a class="collapse-item" href="<?= $BASE_PATH ?>modules/control_produccion/view.php">Control de producción</a>
-                            <?php else: ?>
-                            <span class="collapse-item text-muted small">Control de producción</span>
-                            <?php endif; ?>
-                            <h6 class="collapse-header">Configuración</h6>
                             <?php if (has_permission('ETAPAS_PRODUCCION')): ?>
-                            <a class="collapse-item" href="<?= $BASE_PATH ?>modules/etapa_produccion/view.php">Etapas de producción</a>
+                            <a class="collapse-item" href="<?= moduloUrl('etapa_produccion') ?>">Etapas de producción</a>
                             <?php else: ?>
                             <span class="collapse-item text-muted small">Etapas de producción</span>
                             <?php endif; ?>
                             <?php if (has_permission('EQUIPOS_PRODUCCION')): ?>
-                            <a class="collapse-item" href="<?= $BASE_PATH ?>modules/equipos_produccion/view.php">Equipos de trabajo</a>
+                            <a class="collapse-item" href="<?= moduloUrl('equipos_produccion') ?>">Equipos de trabajo</a>
                             <?php else: ?>
                             <span class="collapse-item text-muted small">Equipos de trabajo</span>
                             <?php endif; ?>
+                            <?php if (has_permission('CONTROL_PRODUCCION')): ?>
+                            <a class="collapse-item" href="<?= moduloUrl('control_produccion') ?>">Control de producción</a>
+                            <?php else: ?>
+                            <span class="collapse-item text-muted small">Control de producción</span>
+                            <?php endif; ?>
                             <?php if (has_permission('PRODUCTOS_TERMINADOS')): ?>
-                            <a class="collapse-item" href="<?= $BASE_PATH ?>modules/productos_terminados/view.php">Productos terminados</a>
+                            <a class="collapse-item" href="<?= moduloUrl('productos_terminados') ?>">Productos terminados</a>
                             <?php else: ?>
                             <span class="collapse-item text-muted small">Productos terminados</span>
                             <?php endif; ?>
                             <?php if (has_permission('CONTROL_CALIDAD')): ?>
-                            <a class="collapse-item" href="<?= $BASE_PATH ?>modules/control_calidad/view.php">Control de calidad</a>
+                            <a class="collapse-item" href="<?= moduloUrl('control_calidad') ?>">Control de calidad</a>
                             <?php else: ?>
                             <span class="collapse-item text-muted small">Control de calidad</span>
                             <?php endif; ?>
                             <?php if (has_permission('PERDIDAS')): ?>
-                            <a class="collapse-item" href="<?= $BASE_PATH ?>modules/perdidas/view.php">Pérdidas y devoluciones</a>
+                            <a class="collapse-item" href="<?= moduloUrl('perdidas') ?>">Pérdidas</a>
                             <?php else: ?>
-                            <span class="collapse-item text-muted small">Pérdidas y devoluciones</span>
+                            <span class="collapse-item text-muted small">Pérdidas</span>
                             <?php endif; ?>
-                            <h6 class="collapse-header">Materia prima</h6>
-                            <?php if (has_permission('PEDIDO_MATERIA_PRIMA')): ?>
-                            <a class="collapse-item" href="<?= $BASE_PATH ?>modules/pedido_materia_produccion/view.php">Pedidos de materia prima</a>
-                            <?php else: ?>
-                            <span class="collapse-item text-muted small">Pedidos de materia prima</span>
-                            <?php endif; ?>
+                            <h6 class="collapse-header">Cierre</h6>
                             <?php if (has_permission('REPOSICION_MATERIA')): ?>
-                            <a class="collapse-item" href="<?= $BASE_PATH ?>modules/reposicion_materia/view.php">Reposición de MP</a>
+                            <a class="collapse-item" href="<?= moduloUrl('reposicion_materia') ?>">Reposición de MP</a>
                             <?php else: ?>
                             <span class="collapse-item text-muted small">Reposición de MP</span>
                             <?php endif; ?>
                             <?php if (has_permission('COSTOS_PRODUCCION')): ?>
-                            <a class="collapse-item" href="<?= $BASE_PATH ?>modules/costos_produccion/view.php">Costos de producción</a>
+                            <a class="collapse-item" href="<?= moduloUrl('costos_produccion') ?>">Costos de producción</a>
                             <?php else: ?>
                             <span class="collapse-item text-muted small">Costos de producción</span>
                             <?php endif; ?>
@@ -442,40 +445,32 @@ $showNotas = has_permission('NOTAS_COMPRAS');
                     </a>
                     <div id="collapseReferenciales" class="collapse" aria-labelledby="headingReferenciales" data-parent="#accordionSidebar">
                         <div class="bg-white py-2 collapse-inner rounded">
-                            <a class="collapse-item" href="<?= $BASE_PATH ?>modules/producto/view.php">Mantener Productos</a>
-                            <a class="collapse-item" href="<?= $BASE_PATH ?>modules/materia_prima/view.php">Mantener Materia Prima</a>
-                            <a class="collapse-item" href="<?= $BASE_PATH ?>modules/clientes/view.php">Mantener Clientes</a>
-                            <a class="collapse-item" href="<?= $BASE_PATH ?>modules/proveedor/view.php">Proveedores</a>
+                            <?php if (has_permission('COMPRAS') || has_permission('REFERENCIALES')): ?>
+                            <h6 class="collapse-header">Compras</h6>
+                            <a class="collapse-item" href="<?= moduloUrl('materia_prima') ?>">Materia prima</a>
+                            <a class="collapse-item" href="<?= moduloUrl('proveedor') ?>">Proveedores</a>
+                            <a class="collapse-item" href="<?= moduloUrl('deposito') ?>">Depósitos</a>
+                            <a class="collapse-item" href="<?= moduloUrl('marca') ?>">Marca</a>
+                            <a class="collapse-item" href="<?= moduloUrl('u_medida') ?>">Unidad de medida</a>
+                            <?php endif; ?>
+                            <?php if (has_permission('REFERENCIALES')): ?>
+                            <h6 class="collapse-header">Producción</h6>
+                            <a class="collapse-item" href="<?= moduloUrl('trabajadores') ?>">Trabajadores</a>
+                            <a class="collapse-item" href="<?= moduloUrl('inspeccion') ?>">Inspección</a>
+                            <a class="collapse-item" href="<?= moduloUrl('inspectores') ?>">Inspectores</a>
+                            <a class="collapse-item" href="<?= moduloUrl('etapa_produccion') ?>">Etapas de producción</a>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </li>
                 <?php } ?>
 
                 <!-- INVENTARIO -->
-                <?php if ($showInventario) { ?>
-                <hr class="sidebar-divider">
-                <div class="sidebar-heading d-flex align-items-center">
-                    <span>INVENTARIO</span>
-                </div>
-                <li class="nav-item">
-                    <a class="nav-link collapsed d-flex align-items-center" href="#" data-toggle="collapse" data-target="#collapseInventario"
-                        aria-expanded="false" aria-controls="collapseInventario">
-                        <img src="<?= $BASE_PATH ?>img/notas.svg" alt="Inventario" class="sidebar-group-icon">
-                        <span>Inventario</span>
-                    </a>
-                    <div id="collapseInventario" class="collapse" aria-labelledby="headingInventario" data-parent="#accordionSidebar">
-                        <div class="bg-white py-2 collapse-inner rounded">
-                            <a class="collapse-item" href="<?= $BASE_PATH ?>modules/ajustes/view.php">Ajuste de Inventario</a>
-                        </div>
-                    </div>
-                </li>
-                <?php } ?>
-
                 <!-- REPORTES GENERALES -->
                 <?php if ($showReportes) { ?>
                 <hr class="sidebar-divider">
                 <li class="nav-item">
-                    <a class="nav-link d-flex align-items-center" href="<?= $BASE_PATH ?>modules/reportes/view.php">
+                    <a class="nav-link d-flex align-items-center" href="<?= moduloUrl('reportes') ?>">
                         <img src="<?= $BASE_PATH ?>img/manual.svg" alt="Reportes" class="sidebar-group-icon">
                         <span>Reportes Generales</span>
                     </a>
@@ -496,10 +491,10 @@ $showNotas = has_permission('NOTAS_COMPRAS');
                     </a>
                     <div id="collapseAdm" class="collapse" aria-labelledby="headingAdm" data-parent="#accordionSidebar">
                         <div class="bg-white py-2 collapse-inner rounded">
-                            <a class="collapse-item d-flex align-items-center" href="<?= $BASE_PATH ?>modules/usuario/view.php">
+                            <a class="collapse-item d-flex align-items-center" href="<?= moduloUrl('usuario') ?>">
                                 Usuarios
                             </a>
-                            <a class="collapse-item d-flex align-items-center" href="<?= $BASE_PATH ?>modules/reset_password/reset.php">
+                            <a class="collapse-item d-flex align-items-center" href="<?= moduloUrl('reset_password', 'reset.php') ?>">
                                 Cambiar contraseña
                             </a>
                         </div>
@@ -564,7 +559,7 @@ $showNotas = has_permission('NOTAS_COMPRAS');
                             <!-- Dropdown - User Information -->
                             <div class="dropdown-menu dropdown-menu-right shadow animated--grow-in"
                                 aria-labelledby="userDropdown">
-                                <a class="dropdown-item" href="<?= $BASE_PATH ?>modules/perfil/view.php">
+                                <a class="dropdown-item" href="<?= moduloUrl('perfil') ?>">
                                     <i class="fas fa-user fa-sm fa-fw mr-2 text-gray-400"></i>
                                     Perfil
                                 </a>

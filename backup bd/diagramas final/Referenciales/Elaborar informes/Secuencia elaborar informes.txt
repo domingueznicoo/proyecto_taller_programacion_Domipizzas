@@ -1,0 +1,111 @@
+@startuml
+title Elaborar Informes Varios – Botón: Generar Informe
+
+autonumber
+
+actor "Jefe de Compras / Jefe de Producción" as USR
+boundary "GUI Reportes Generales" as GUIForm
+control "InformeController" as CTRL
+control "conexion" as CONX
+entity "usuarios" as USU
+entity "sucursales" as SUC
+entity "pedidos_compra" as PEDCOM
+entity "presupuesto_compra" as PRESU
+entity "orden_de_compra" as OC
+entity "factura_compra" as FAC
+entity "nota_compra" as NOTA
+entity "nota_remision_compra" as NR
+entity "ajustes" as AJU
+entity "pedido_produccion" as PEDPROD
+entity "orden_produccion" as OP
+entity "control_produccion" as CPROD
+entity "producto_terminado" as PT
+entity "perdidas" as PER
+entity "bitacora" as BIT
+
+USR -> GUIForm : Accede al menú Reportes Generales
+
+GUIForm -> CTRL : validarSesion()
+CTRL -> USU : consultar_usuario(id_usuario)
+USU --> CTRL : datos_usuario
+CTRL -> SUC : consultar_sucursal(id_sucursal)
+SUC --> CTRL : datos_sucursal
+
+GUIForm -> CTRL : validarPermisos(id_usuario)
+CTRL --> GUIForm : permisos válidos / inválidos
+GUIForm -> USR : Mostrar bloqueo si no tiene permisos
+
+GUIForm -> CTRL : cargarMovimientos(perfil_usuario)
+CTRL --> GUIForm : lista_movimientos
+
+USR -> GUIForm : Selecciona movimiento
+
+GUIForm -> CTRL : cargarEstados(movimiento)
+CTRL --> GUIForm : lista_estados
+
+USR -> GUIForm : Selecciona estado
+USR -> GUIForm : Ingresa fecha desde
+USR -> GUIForm : Ingresa fecha hasta
+
+USR -> GUIForm : Clic en "Generar informe"
+
+GUIForm -> CTRL : validarFiltros(movimiento, estado, desde, hasta)
+CTRL --> GUIForm : filtros válidos / inválidos
+GUIForm -> USR : Mostrar error si filtros inválidos
+
+GUIForm -> CTRL : consultarDatos(movimiento, estado, desde, hasta, id_sucursal)
+
+CTRL -> CONX : conector()
+CONX --> CTRL : Connection
+
+alt Movimiento de Compras
+  CTRL -> PEDCOM : consultar_por_filtro(desde, hasta, estado)
+  PEDCOM --> CTRL : resultados / vacío
+  CTRL -> PRESU : consultar_por_filtro(desde, hasta, estado)
+  PRESU --> CTRL : resultados / vacío
+  CTRL -> OC : consultar_por_filtro(desde, hasta, estado)
+  OC --> CTRL : resultados / vacío
+  CTRL -> FAC : consultar_por_filtro(desde, hasta, estado)
+  FAC --> CTRL : resultados / vacío
+  CTRL -> NOTA : consultar_por_filtro(desde, hasta, estado)
+  NOTA --> CTRL : resultados / vacío
+  CTRL -> NR : consultar_por_filtro(desde, hasta, estado)
+  NR --> CTRL : resultados / vacío
+  CTRL -> AJU : consultar_por_filtro(desde, hasta, estado)
+  AJU --> CTRL : resultados / vacío
+else Movimiento de Producción
+  CTRL -> PEDPROD : consultar_por_filtro(desde, hasta, estado)
+  PEDPROD --> CTRL : resultados / vacío
+  CTRL -> OP : consultar_por_filtro(desde, hasta, estado)
+  OP --> CTRL : resultados / vacío
+  CTRL -> CPROD : consultar_por_filtro(desde, hasta, estado)
+  CPROD --> CTRL : resultados / vacío
+  CTRL -> PT : consultar_por_filtro(desde, hasta, estado)
+  PT --> CTRL : resultados / vacío
+  CTRL -> PER : consultar_por_filtro(desde, hasta, estado)
+  PER --> CTRL : resultados / vacío
+end
+
+CTRL -> GUIForm : validarResultados(resultados)
+GUIForm -> USR : Mostrar aviso si no existen resultados
+
+GUIForm -> CTRL : generarPDF(resultados, filtros)
+CTRL --> GUIForm : archivo PDF generado
+
+CTRL -> BIT : registrarBitacora(id_usuario, accion_realizada, fecha_accion)
+BIT --> CTRL : registro exitoso
+
+GUIForm -> USR : Abrir PDF en nueva pestaña
+
+USR -> GUIForm : Clic en "Limpiar filtros"
+GUIForm -> CTRL : limpiarFiltros()
+CTRL --> GUIForm : formulario reiniciado
+
+note over CTRL
+  Los informes son de solo lectura.
+  No se crean tablas DatosCompras,
+  DatosProduccion ni ReferencialesComunes.
+  Se consultan tablas transaccionales reales.
+end note
+
+@enduml

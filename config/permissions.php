@@ -1,4 +1,5 @@
 <?php
+// Permisos por cargo y función check_permission().
 /**
  * Sistema de Control de Acceso por Cargo (Rol)
  * 
@@ -88,10 +89,13 @@ function obtenerNombreCargo(PDO $pdo, int $idCargo): string {
 }
 
 /**
- * Obtiene los permisos permitidos para un cargo
- * 
- * @param string $cargo Nombre del cargo normalizado (ROL_ADMIN, etc.)
- * @return array Array de módulos permitidos
+ * Permisos por cargo (tesis: Compras + Producción).
+ *
+ * ADMIN: acceso total.
+ * JEFE_COMPRAS: movimientos compras + REPORTES_COMPRAS.
+ * ENC_COMPRAS: movimientos operativos compras (sin reportes ni libro).
+ * JEFE_PRODUCCION: movimientos producción + referenciales prod. + REPORTES_PRODUCCION.
+ * ENC_PRODUCCION: movimientos operativos producción (sin reportes ni referenciales).
  */
 function moduloVentasHabilitado(): bool {
     static $habilitado = null;
@@ -109,7 +113,7 @@ function obtenerPermisosPorCargo(string $cargo): array {
             'REPORTES_COMPRAS', 'REPORTES_PRODUCCION', 'REPORTES_GENERALES',
             'ADMINISTRACION',
             'PEDIDO_COMPRAS', 'PRESUPUESTO_COMPRAS', 'ORDEN_COMPRA',
-            'FACTURA_COMPRAS', 'NOTAS_COMPRAS', 'LIBRO_COMPRAS',
+            'FACTURA_COMPRAS', 'NOTAS_COMPRAS', 'LIBRO_COMPRAS', 'AJUSTES',
             'PEDIDO_PRODUCCION', 'ORDEN_PRODUCCION', 'CONTROL_PRODUCCION',
             'CONTROL_CALIDAD', 'PRODUCTOS_TERMINADOS', 'PERDIDAS',
             'PEDIDO_MATERIA_PRIMA', 'REPOSICION_MATERIA', 'COSTOS_PRODUCCION',
@@ -120,7 +124,7 @@ function obtenerPermisosPorCargo(string $cargo): array {
             'COMPRAS',
             'REPORTES_COMPRAS',
             'PEDIDO_COMPRAS', 'PRESUPUESTO_COMPRAS', 'ORDEN_COMPRA',
-            'FACTURA_COMPRAS', 'NOTAS_COMPRAS', 'LIBRO_COMPRAS',
+            'FACTURA_COMPRAS', 'NOTAS_COMPRAS', 'LIBRO_COMPRAS', 'AJUSTES',
         ],
 
         ROL_JEFE_PRODUCCION => [
@@ -135,14 +139,13 @@ function obtenerPermisosPorCargo(string $cargo): array {
 
         ROL_ENC_COMPRAS => [
             'PEDIDO_COMPRAS', 'PRESUPUESTO_COMPRAS', 'ORDEN_COMPRA',
-            'FACTURA_COMPRAS', 'NOTAS_COMPRAS',
+            'FACTURA_COMPRAS', 'NOTAS_COMPRAS', 'AJUSTES',
         ],
 
         ROL_ENC_PRODUCCION => [
-            'PEDIDO_PRODUCCION', 'ORDEN_PRODUCCION', 'CONTROL_PRODUCCION',
-            'CONTROL_CALIDAD', 'PRODUCTOS_TERMINADOS', 'PERDIDAS',
+            'PEDIDO_PRODUCCION', 'ORDEN_PRODUCCION', 'ETAPAS_PRODUCCION', 'EQUIPOS_PRODUCCION',
+            'CONTROL_PRODUCCION', 'CONTROL_CALIDAD', 'PRODUCTOS_TERMINADOS', 'PERDIDAS',
             'PEDIDO_MATERIA_PRIMA', 'REPOSICION_MATERIA', 'COSTOS_PRODUCCION',
-            'ETAPAS_PRODUCCION', 'EQUIPOS_PRODUCCION',
         ],
     ];
 

@@ -1,0 +1,143 @@
+@startuml
+title Registrar Presupuesto – Botón: Guardar / Editar / Anular
+
+autonumber
+
+actor "Encargado de Compras" as ENC
+boundary "GUI Lista de Presupuestos" as GUILista
+boundary "GUI Presupuesto" as GUIForm
+control "PresupuestoCompraController" as CTRL
+control "conexion" as CONX
+entity "presupuesto_compra" as PRESU
+entity "presupuesto_detalle_compra" as DETP
+entity "pedidos_compra" as PED
+entity "pedido_detalle_compra" as DETPED
+entity "proveedor" as PROV
+entity "materia_prima" as MP
+entity "tipo_iva" as TIVA
+entity "usuarios" as USU
+entity "sucursales" as SUC
+entity "bitacora" as BIT
+
+ENC -> GUILista : Accede a Compras → Presupuestos
+GUILista -> CTRL : listarPresupuestos()
+CTRL -> CONX : conector()
+CONX --> CTRL : Connection
+CTRL -> PRESU : consultar_presupuestos()
+PRESU --> CTRL : lista_presupuestos
+CTRL -> GUILista : mostrar lista principal
+
+ENC -> GUILista : Clic en "Nuevo"
+GUILista -> GUIForm : abrir formulario de presupuesto
+
+GUIForm -> CTRL : cargarContexto()
+CTRL -> USU : consultar_usuario(id_usuario)
+USU --> CTRL : datos_usuario
+CTRL -> SUC : consultar_sucursal(id_sucursal)
+SUC --> CTRL : datos_sucursal
+CTRL -> PROV : consultar_proveedores_activos()
+PROV --> CTRL : lista_proveedores
+CTRL -> PED : consultar_pedidos_pendientes()
+PED --> CTRL : lista_pedidos_pendientes
+CTRL -> GUIForm : mostrar contexto, proveedores y pedidos
+
+ENC -> GUIForm : Selecciona proveedor
+ENC -> GUIForm : Selecciona pedido de compra
+GUIForm -> CTRL : precargarDetallePedido(id_pedido_compra)
+
+CTRL -> PED : consultar_pedido(id_pedido_compra)
+PED --> CTRL : datos_pedido
+
+CTRL -> DETPED : consultar_detalle_pedido(id_pedido_compra)
+DETPED --> CTRL : detalle_pedido
+
+CTRL -> MP : consultar_materias_primas(detalle_pedido)
+MP --> CTRL : datos_materias_primas
+
+CTRL -> TIVA : consultar_tipo_iva(iva_id)
+TIVA --> CTRL : datos_iva
+
+CTRL -> GUIForm : mostrar detalle precargado
+
+ENC -> GUIForm : Completa precios, descuentos y cantidades
+GUIForm -> CTRL : calcularTotales(detalle)
+CTRL --> GUIForm : subtotal, descuento, IVA y total
+
+GUIForm -> CTRL : validarDetalle(detalle)
+CTRL --> GUIForm : detalle válido / inválido
+GUIForm -> ENC : Mostrar error si existen datos inválidos
+
+ENC -> GUIForm : Clic en "Guardar"
+GUIForm -> CTRL : registrarPresupuesto(datos_presupuesto, detalle)
+
+CTRL -> PRESU : insertar_presupuesto(presu_fecha, presu_estado, id_pedido_compra, id_usuario, id_sucursal, id_proveedor, descuento_total, presu_total, presu_observaciones)
+PRESU --> CTRL : id_presupuesto_compra
+
+CTRL -> DETP : insertar_detalle_presupuesto(id_presupuesto_compra, id_materia_prima, cantidad, precio_compra, descuento, iva)
+DETP --> CTRL : detalle registrado
+
+CTRL -> PED : actualizar_estado_aprobado(id_pedido_compra)
+PED --> CTRL : actualización exitosa
+
+CTRL -> BIT : registrarBitacora(id_usuario, accion_realizada, fecha_accion)
+BIT --> CTRL : registro exitoso
+
+CTRL -> GUIForm : mostrar confirmación
+GUIForm -> GUILista : actualizar lista principal
+
+ENC -> GUILista : Selecciona presupuesto Emitido y clic en "Editar"
+GUILista -> CTRL : obtenerPresupuesto(id_presupuesto_compra)
+
+CTRL -> PRESU : consultar_presupuesto(id_presupuesto_compra)
+PRESU --> CTRL : datos_presupuesto
+
+CTRL -> DETP : consultar_detalle_presupuesto(id_presupuesto_compra)
+DETP --> CTRL : detalle_presupuesto
+
+CTRL -> GUIForm : mostrar formulario con datos cargados
+
+ENC -> GUIForm : Ajusta precios, descuentos y cantidades
+GUIForm -> CTRL : calcularTotales(detalle)
+CTRL --> GUIForm : subtotal, descuento, IVA y total
+
+GUIForm -> CTRL : validarDetalle(detalle)
+CTRL --> GUIForm : detalle válido / inválido
+GUIForm -> ENC : Mostrar error si existen datos inválidos
+
+ENC -> GUIForm : Clic en "Guardar"
+GUIForm -> CTRL : editarPresupuesto(id_presupuesto_compra, datos_presupuesto, detalle)
+
+CTRL -> PRESU : actualizar_presupuesto(id_presupuesto_compra, descuento_total, presu_total, presu_observaciones)
+PRESU --> CTRL : actualización exitosa
+
+CTRL -> DETP : actualizar_detalle_presupuesto(id_presupuesto_compra, detalle)
+DETP --> CTRL : detalle actualizado
+
+CTRL -> BIT : registrarBitacora(id_usuario, accion_realizada, fecha_accion)
+BIT --> CTRL : registro exitoso
+
+CTRL -> GUIForm : mostrar confirmación
+GUIForm -> GUILista : actualizar lista principal
+
+ENC -> GUILista : Selecciona presupuesto y clic en "Anular"
+GUILista -> ENC : Solicitar confirmación
+
+ENC -> GUILista : Confirma anulación
+GUILista -> CTRL : anularPresupuesto(id_presupuesto_compra)
+
+CTRL -> PRESU : verificar_estado_emitido(id_presupuesto_compra)
+PRESU --> CTRL : estado_presupuesto
+
+CTRL -> PRESU : actualizar_estado_anulado(id_presupuesto_compra)
+PRESU --> CTRL : anulación exitosa
+
+CTRL -> PED : actualizar_estado_pendiente(id_pedido_compra)
+PED --> CTRL : actualización exitosa
+
+CTRL -> BIT : registrarBitacora(id_usuario, accion_realizada, fecha_accion)
+BIT --> CTRL : registro exitoso
+
+CTRL -> GUILista : mostrar confirmación o error
+GUILista -> ENC : actualizar lista principal
+
+@enduml

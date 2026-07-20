@@ -1,0 +1,147 @@
+@startuml
+title Registrar Pedido de Materia Prima – Botón: Guardar / Editar / Anular
+
+autonumber
+
+actor "Encargado de Producción" as ENC
+
+boundary "GUI Lista Pedidos MP" as GUILista
+boundary "GUI Pedido MP" as GUIForm
+
+control "PedidoMateriaController" as CTRL
+control "conexion" as CONX
+
+entity "pedido_materia_produccion" as PED
+entity "pedido_materia_detalle_produccion" as DET
+entity "materia_prima" as MP
+entity "deposito" as DEP
+entity "usuarios" as USU
+entity "sucursales" as SUC
+entity "reposicion_materia" as REP
+entity "bitacora" as BIT
+
+ENC -> GUILista : Accede a Producción → Pedidos de MP
+GUILista -> CTRL : listarPedidos()
+
+CTRL -> CONX : conector()
+CONX --> CTRL : Connection
+
+CTRL -> PED : consultar_pedidos()
+PED --> CTRL : lista_pedidos
+
+CTRL -> GUILista : mostrar lista principal
+
+ENC -> GUILista : Clic en "Nuevo"
+GUILista -> GUIForm : abrir formulario
+
+GUIForm -> CTRL : cargarContexto()
+
+CTRL -> USU : consultar_usuario(id_usuario)
+USU --> CTRL : datos_usuario
+
+CTRL -> SUC : consultar_sucursal(id_sucursal)
+SUC --> CTRL : datos_sucursal
+
+CTRL -> DEP : consultar_depositos_activos()
+DEP --> CTRL : lista_depositos
+
+CTRL -> MP : consultar_materias_primas_activas()
+MP --> CTRL : lista_materias_primas
+
+CTRL -> GUIForm : mostrar contexto y catálogos
+
+ENC -> GUIForm : Selecciona depósito
+ENC -> GUIForm : Selecciona materia prima
+ENC -> GUIForm : Ingresa cantidad requerida
+ENC -> GUIForm : Clic en "Agregar"
+
+GUIForm -> CTRL : validarItem(id_mp,cantidad)
+
+CTRL -> MP : verificar_estado(id_mp)
+MP --> CTRL : activo
+
+CTRL --> GUIForm : item válido
+
+GUIForm -> CTRL : agregarItem(id_mp,cantidad)
+CTRL -> GUIForm : agregar fila al detalle
+
+ENC -> GUIForm : Agrega más ítems si corresponde
+
+ENC -> GUIForm : Clic en "Guardar pedido"
+
+GUIForm -> CTRL : validarDetalle(detalle)
+CTRL --> GUIForm : detalle válido
+
+GUIForm -> CTRL : registrarPedido(datos_pedido,detalle)
+
+CTRL -> PED : insertar_pedido(fecha,estado='PENDIENTE',deposito_id,usuario_id,sucursal_id)
+PED --> CTRL : id_pedido_materia
+
+CTRL -> DET : insertar_detalle(id_pedido,id_mp,cant_solicitada,cant_repuesta=0)
+DET --> CTRL : detalle registrado
+
+CTRL -> BIT : registrarBitacora(id_usuario,'ALTA',fecha_accion)
+BIT --> CTRL : registro exitoso
+
+CTRL -> GUIForm : mostrar confirmación
+GUIForm -> GUILista : actualizar lista principal
+
+ENC -> GUILista : Selecciona pedido PENDIENTE
+ENC -> GUILista : Clic en "Editar"
+
+GUILista -> CTRL : obtenerPedido(id_pedido)
+
+CTRL -> PED : consultar_pedido(id_pedido)
+PED --> CTRL : datos_pedido
+
+CTRL -> DET : consultar_detalle(id_pedido)
+DET --> CTRL : detalle_pedido
+
+CTRL -> REP : verificar_reposiciones(id_pedido)
+REP --> CTRL : sin reposiciones
+
+CTRL -> GUIForm : mostrar formulario con datos cargados
+
+ENC -> GUIForm : Modifica datos permitidos
+
+GUIForm -> CTRL : validarDetalle(detalle)
+CTRL --> GUIForm : detalle válido
+
+ENC -> GUIForm : Clic en "Guardar"
+
+GUIForm -> CTRL : editarPedido(id_pedido,datos_pedido,detalle)
+
+CTRL -> PED : actualizar_pedido(id_pedido)
+PED --> CTRL : actualización exitosa
+
+CTRL -> DET : actualizar_detalle(id_pedido,detalle)
+DET --> CTRL : detalle actualizado
+
+CTRL -> BIT : registrarBitacora(id_usuario,'MODIFICACION',fecha_accion)
+BIT --> CTRL : registro exitoso
+
+CTRL -> GUIForm : mostrar confirmación
+GUIForm -> GUILista : actualizar lista principal
+
+ENC -> GUILista : Selecciona pedido
+ENC -> GUILista : Clic en "Anular"
+
+GUILista -> ENC : Solicitar confirmación
+
+ENC -> GUILista : Confirma anulación
+
+GUILista -> CTRL : anularPedido(id_pedido)
+
+CTRL -> REP : verificar_reposiciones(id_pedido)
+REP --> CTRL : resultado_validacion
+
+CTRL -> PED : actualizar_estado_anulado(id_pedido)
+PED --> CTRL : anulación exitosa
+
+CTRL -> BIT : registrarBitacora(id_usuario,'ANULACION',fecha_accion)
+BIT --> CTRL : registro exitoso
+
+CTRL -> GUILista : mostrar confirmación o error
+GUILista -> ENC : actualizar lista principal
+
+@enduml

@@ -1,0 +1,130 @@
+@startuml
+title Registrar Etapa de Producción – Botón: Guardar / Editar / Anular
+
+autonumber
+
+actor "Encargado de Producción" as ENC
+boundary "GUI Lista de Etapas de Producción" as GUILista
+boundary "GUI Etapas de Producción" as GUIForm
+control "EtapaProduccionController" as CTRL
+control "conexion" as CONX
+entity "etapa_produccion" as ETAPA
+entity "etapa_detalle_produccion" as ETAPADET
+entity "productos" as PROD
+entity "control_produccion" as CPROD
+entity "usuarios" as USU
+entity "sucursales" as SUC
+entity "bitacora" as BIT
+
+ENC -> GUILista : Accede a Producción → Etapas de producción
+GUILista -> CTRL : listarEtapas()
+CTRL -> CONX : conector()
+CONX --> CTRL : Connection
+CTRL -> ETAPA : consultar_rutas_por_producto()
+ETAPA --> CTRL : lista_rutas
+CTRL -> GUILista : mostrar lista principal
+
+ENC -> GUILista : Clic en "Nueva ruta"
+GUILista -> GUIForm : abrir formulario de ruta
+
+GUIForm -> CTRL : cargarContexto()
+CTRL -> USU : consultar_usuario(id_usuario)
+USU --> CTRL : datos_usuario
+CTRL -> SUC : consultar_sucursal(id_sucursal)
+SUC --> CTRL : datos_sucursal
+CTRL -> PROD : consultar_productos_activos()
+PROD --> CTRL : lista_productos
+CTRL -> GUIForm : mostrar contexto y productos
+
+ENC -> GUIForm : Selecciona producto
+GUIForm -> CTRL : validarProductoSinRutaActiva(producto_id)
+CTRL -> ETAPA : consultar_ruta_activa(producto_id)
+ETAPA --> CTRL : sin ruta activa / con ruta activa
+CTRL --> GUIForm : producto válido / inválido
+
+ENC -> GUIForm : Ingresa datos del paso
+ENC -> GUIForm : Clic en "Agregar paso"
+
+GUIForm -> CTRL : validarPaso(secuencia, nombre_etapa, procedimiento, tiempo_estimado)
+CTRL --> GUIForm : paso válido / inválido
+GUIForm -> ENC : Mostrar error si existen datos inválidos
+
+GUIForm -> CTRL : agregarPaso(datos_paso)
+CTRL -> GUIForm : agregar paso al detalle
+
+ENC -> GUIForm : Clic en "Guardar ruta"
+GUIForm -> CTRL : validarDetalle(detalle)
+CTRL --> GUIForm : detalle válido / inválido
+GUIForm -> ENC : Mostrar error si el detalle está vacío o con secuencias duplicadas
+
+GUIForm -> CTRL : registrarRuta(producto_id, detalle)
+
+CTRL -> ETAPA : insertar_etapa(etapa_fecha, etapa_descri, id_usuario, producto_id, etapa_estado)
+ETAPA --> CTRL : etapa_id
+
+CTRL -> ETAPADET : insertar_detalle_etapa(etapa_id, producto_id, etapa_nombre, etapa_procedimiento, etapa_secuencia, etapa_tiempo_estimado, etapa_observaciones)
+ETAPADET --> CTRL : detalle registrado
+
+CTRL -> BIT : registrarBitacora(id_usuario, accion_realizada, fecha_accion)
+BIT --> CTRL : registro exitoso
+
+CTRL -> GUIForm : mostrar confirmación
+GUIForm -> GUILista : actualizar lista principal
+
+ENC -> GUILista : Selecciona ruta activa y clic en "Editar"
+GUILista -> CTRL : obtenerRuta(etapa_id)
+
+CTRL -> ETAPA : consultar_etapa(etapa_id)
+ETAPA --> CTRL : datos_etapa
+
+CTRL -> ETAPADET : consultar_detalle_etapa(etapa_id)
+ETAPADET --> CTRL : detalle_etapa
+
+CTRL -> GUIForm : mostrar formulario con pasos cargados
+
+ENC -> GUIForm : Modifica pasos, secuencias, tiempos u observaciones
+GUIForm -> CTRL : validarDetalle(detalle)
+CTRL --> GUIForm : detalle válido / inválido
+
+GUIForm -> CTRL : validarEtapaEnUso(etapa_id)
+CTRL -> CPROD : consultar_uso_etapa(etapa_id)
+CPROD --> CTRL : sin uso / en uso
+CTRL --> GUIForm : edición permitida / restringida
+
+ENC -> GUIForm : Clic en "Guardar"
+GUIForm -> CTRL : editarRuta(etapa_id, detalle)
+
+CTRL -> ETAPA : actualizar_etapa(etapa_id, etapa_descri, etapa_estado)
+ETAPA --> CTRL : actualización exitosa
+
+CTRL -> ETAPADET : actualizar_detalle_etapa(etapa_id, detalle)
+ETAPADET --> CTRL : detalle actualizado
+
+CTRL -> BIT : registrarBitacora(id_usuario, accion_realizada, fecha_accion)
+BIT --> CTRL : registro exitoso
+
+CTRL -> GUIForm : mostrar confirmación
+GUIForm -> GUILista : actualizar lista principal
+
+ENC -> GUILista : Selecciona ruta y clic en "Anular"
+GUILista -> ENC : Solicitar confirmación
+
+ENC -> GUILista : Confirma anulación
+GUILista -> CTRL : anularRuta(etapa_id)
+
+CTRL -> CPROD : consultar_uso_etapa(etapa_id)
+CPROD --> CTRL : sin uso / en uso
+
+CTRL -> ETAPA : actualizar_estado_anulado(etapa_id)
+ETAPA --> CTRL : anulación exitosa
+
+CTRL -> ETAPADET : actualizar_detalle_anulado(etapa_id)
+ETAPADET --> CTRL : detalle anulado
+
+CTRL -> BIT : registrarBitacora(id_usuario, accion_realizada, fecha_accion)
+BIT --> CTRL : registro exitoso
+
+CTRL -> GUILista : mostrar confirmación o error
+GUILista -> ENC : actualizar lista principal
+
+@enduml

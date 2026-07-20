@@ -1,0 +1,118 @@
+@startuml
+title Registrar Pedidos de Compra – Botón: Guardar / Editar / Anular
+
+autonumber
+
+actor "Encargado de Compras" as ENC
+boundary "GUI Lista de Pedidos de Compra" as GUILista
+boundary "GUI Pedido de Compra" as GUIForm
+control "PedidoCompraController" as CTRL
+control "conexion" as CONX
+entity "pedidos_compra" as PED
+entity "pedido_detalle_compra" as DET
+entity "materia_prima" as MP
+entity "stock_materia_prima" as STOCK
+entity "usuarios" as USU
+entity "sucursales" as SUC
+entity "bitacora" as BIT
+
+ENC -> GUILista : Accede a Compras → Pedidos
+GUILista -> CTRL : listarPedidos()
+CTRL -> CONX : conector()
+CONX --> CTRL : Connection
+CTRL -> PED : consultar_pedidos()
+PED --> CTRL : lista_pedidos
+CTRL -> GUILista : mostrar lista principal
+
+ENC -> GUILista : Clic en "Nuevo"
+GUILista -> GUIForm : abrir formulario de pedido
+
+GUIForm -> CTRL : cargarContexto()
+CTRL -> USU : consultar_usuario(id_usuario)
+USU --> CTRL : datos_usuario
+CTRL -> SUC : consultar_sucursal(id_sucursal)
+SUC --> CTRL : datos_sucursal
+CTRL -> MP : consultar_materias_primas_activas()
+MP --> CTRL : lista_materias_primas
+CTRL -> GUIForm : mostrar contexto y materias primas
+
+ENC -> GUIForm : Selecciona materia prima e ingresa cantidad
+ENC -> GUIForm : Clic en "Agregar ítem"
+GUIForm -> CTRL : validarItem(id_materia_prima, cantidad)
+CTRL --> GUIForm : ítem válido / inválido
+GUIForm -> ENC : Mostrar error si existen datos inválidos
+
+GUIForm -> CTRL : agregarItem(id_materia_prima, cantidad)
+CTRL -> STOCK : consultar_stock_materia_prima(id_materia_prima)
+STOCK --> CTRL : datos_stock
+CTRL -> GUIForm : agregar ítem al detalle
+
+ENC -> GUIForm : Clic en "Guardar"
+GUIForm -> CTRL : validarDetalle(detalle)
+CTRL --> GUIForm : detalle válido / inválido
+GUIForm -> ENC : Mostrar error si el detalle está vacío
+
+GUIForm -> CTRL : registrarPedido(datos_pedido, detalle)
+
+CTRL -> PED : insertar_pedido(pedido_fecha_emision, pedido_estado, id_usuario, id_sucursal, pedido_observaciones)
+PED --> CTRL : id_pedido_compra
+
+CTRL -> DET : insertar_detalle(id_pedido_compra, id_materia_prima, cantidad_pedido)
+DET --> CTRL : detalle registrado
+
+CTRL -> BIT : registrarBitacora(id_usuario, accion_realizada, fecha_accion)
+BIT --> CTRL : registro exitoso
+
+CTRL -> GUIForm : mostrar confirmación
+GUIForm -> GUILista : actualizar lista principal
+
+ENC -> GUILista : Selecciona pedido Pendiente y clic en "Editar"
+GUILista -> CTRL : obtenerPedido(id_pedido_compra)
+CTRL -> PED : consultar_pedido(id_pedido_compra)
+PED --> CTRL : datos_pedido
+CTRL -> DET : consultar_detalle(id_pedido_compra)
+DET --> CTRL : detalle_pedido
+CTRL -> GUIForm : mostrar formulario con datos cargados
+
+ENC -> GUIForm : Modifica ítems y/u observaciones
+GUIForm -> CTRL : validarDetalle(detalle)
+CTRL --> GUIForm : detalle válido / inválido
+GUIForm -> ENC : Mostrar error si existen datos inválidos
+
+ENC -> GUIForm : Clic en "Guardar"
+GUIForm -> CTRL : editarPedido(id_pedido_compra, datos_pedido, detalle)
+
+CTRL -> PED : actualizar_pedido(id_pedido_compra, pedido_observaciones)
+PED --> CTRL : actualización exitosa
+
+CTRL -> DET : actualizar_detalle(id_pedido_compra, detalle)
+DET --> CTRL : detalle actualizado
+
+CTRL -> BIT : registrarBitacora(id_usuario, accion_realizada, fecha_accion)
+BIT --> CTRL : registro exitoso
+
+CTRL -> GUIForm : mostrar confirmación
+GUIForm -> GUILista : actualizar lista principal
+
+ENC -> GUILista : Selecciona pedido y clic en "Anular"
+GUILista -> ENC : Solicitar confirmación
+
+ENC -> GUILista : Confirma anulación
+GUILista -> CTRL : anularPedido(id_pedido_compra)
+
+CTRL -> PED : verificar_estado_pendiente(id_pedido_compra)
+PED --> CTRL : estado_pedido
+
+CTRL -> PED : validar_vinculos_posteriores(id_pedido_compra)
+PED --> CTRL : sin vínculos / con vínculos
+
+CTRL -> PED : actualizar_estado_anulado(id_pedido_compra)
+PED --> CTRL : anulación exitosa
+
+CTRL -> BIT : registrarBitacora(id_usuario, accion_realizada, fecha_accion)
+BIT --> CTRL : registro exitoso
+
+CTRL -> GUILista : mostrar confirmación o error
+GUILista -> ENC : actualizar lista principal
+
+@enduml

@@ -1,0 +1,126 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+left to right direction
+
+title Diagrama de Clases - Caso de Uso "Mantener Usuarios"
+
+class "GUI Lista de Usuarios" as GUILista <<boundary>> {
+  +tbl_usuarios
+  +btn_nuevo
+  +btn_buscador
+  +btn_editar
+  +btn_eliminar
+  +btn_siguiente
+  +btn_anterior
+  +index() : void
+  +editar() : void
+  +eliminar() : void
+}
+
+class "GUI Usuarios" as GUIForm <<boundary>> {
+  +select_personal
+  +select_sucursal
+  +select_cargo
+  +select_modulo
+  +txt_username
+  +txt_password
+  +txt_confirmar_password
+  +btn_guardar
+  +btn_cerrar
+  +guardar() : void
+}
+
+class UsuarioController <<control>> {
+  +listarUsuarios() : void
+  +buscarUsuario() : void
+  +validarCampos() : boolean
+  +validarPassword() : boolean
+  +registrarUsuario() : void
+  +editarUsuario() : void
+  +eliminarUsuario() : void
+  +validarVinculosActivos() : boolean
+  +registrarBitacora() : void
+}
+
+class conexion <<control>> {
+  -host : String
+  -puerto : int
+  -nombre_bd : String
+  -contraseña : String
+  +conector() : Connection
+}
+
+class usuarios <<entity>> {
+  +id_usuario : int
+  +estado_usuario : String
+  +id_sucursal : int
+  +modulo_id : int
+  +username : String
+  +usua_password : String
+  +id_cargo : int
+  +id_personal : int
+}
+
+class personal <<entity>> {
+  +id_personal : int
+  +personal_estado : String
+  +personal_nombre : String
+  +personal_apellido : String
+  +personal_telefono : String
+  +personal_ci : String
+  +id_cargo : int
+  +id_usuario : int
+  +id_sucursal : int
+}
+
+class sucursales <<entity>> {
+  +id_sucursal : int
+  +descripcion_sucursal : String
+  +estado_sucursal : String
+  +id_usuario : int
+}
+
+class modulos <<entity>> {
+  +modulo_id : int
+  +modulo_descri : String
+  +id_usuario : int
+}
+
+class cargos <<entity>> {
+  +id_cargo : int
+  +cargo_descripcion : String
+  +estado_cargo : String
+  +id_usuario : int
+}
+
+class bitacora <<entity>> {
+  +id_bitacora : int
+  +id_usuario : int
+  +entidad_afectada : String
+  +id_registro : int
+  +accion_realizada : String
+  +descripcion_cambio : Text
+  +fecha_accion : DateTime
+  +ip_origen : String
+  +navegador_usuario : String
+  +estado_registro : String
+}
+
+GUILista --> UsuarioController
+GUIForm --> UsuarioController
+
+UsuarioController ..> conexion
+UsuarioController ..> usuarios
+UsuarioController ..> personal
+UsuarioController ..> sucursales
+UsuarioController ..> cargos
+UsuarioController ..> modulos
+UsuarioController ..> bitacora
+
+usuarios "1" --> "1" personal
+usuarios "1" --> "1" sucursales
+usuarios "1" --> "1" cargos
+usuarios "1" --> "1" modulos
+
+@enduml

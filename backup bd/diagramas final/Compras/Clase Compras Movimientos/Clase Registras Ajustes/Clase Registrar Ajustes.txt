@@ -1,0 +1,154 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+left to right direction
+
+title Diagrama de Clases - Caso de Uso "Registrar Ajustes"
+
+class "GUI Lista de Ajustes" as GUILista <<boundary>> {
+  +btn_nuevo
+  +btn_buscador
+  +tbl_ajustes
+  +btn_detalle
+  +btn_editar
+  +btn_anular
+  +btn_anterior
+  +btn_siguiente
+  +index() : void
+  +editar() : void
+  +anular() : void
+}
+
+class "GUI Ajustes" as GUIForm <<boundary>> {
+  +txt_fecha
+  +txt_nro_interno
+  +select_deposito
+  +select_motivo
+  +select_materia_prima
+  +txt_cantidad
+  +tbl_detalle
+  +btn_agregar
+  +btn_quitar
+  +btn_guardar
+  +btn_cancelar
+  +btn_cerrar
+  +guardar() : void
+}
+
+class AjusteController <<control>> {
+  +listarAjustes() : void
+  +cargarContexto() : void
+  +cargarDepositos() : void
+  +cargarMotivos() : void
+  +cargarMateriasPrimas() : void
+  +validarItem() : boolean
+  +agregarItem() : void
+  +quitarItem() : void
+  +validarDetalle() : boolean
+  +validarStockResultante() : boolean
+  +registrarAjuste() : void
+  +editarAjuste() : void
+  +anularAjuste() : void
+  +actualizarStock() : void
+  +revertirStock() : void
+  +registrarBitacora() : void
+}
+
+class conexion <<control>> {
+  -host : String
+  -puerto : int
+  -nombre_bd : String
+  -contraseña : String
+  +conector() : Connection
+}
+
+class ajustes <<entity>> {
+  +id_ajuste : int
+  +ajuste_fecha : Date
+  +ajuste_estado : String
+  +deposito_id : int
+  +id_usuario : int
+}
+
+class ajustes_detalle <<entity>> {
+  +id_ajuste : int
+  +id_materia_prima : int
+  +id_stock : int
+  +ajuste_cantidad : int
+  +id_motivo : int
+}
+
+class motivo <<entity>> {
+  +id_motivo : int
+  +motivo_descripcion : String
+  +categoria_motivo : String
+  +id_usuario : int
+}
+
+class deposito <<entity>> {
+  +deposito_id : int
+  +deposito_descri : String
+  +id_usuario : int
+}
+
+class materia_prima <<entity>> {
+  +id_materia_prima : int
+  +materia_prima_descripcion : String
+  +materia_prima_estado : String
+  +id_unidad : int
+  +id_usuario : int
+  +iva_id : int
+}
+
+class stock_materia_prima <<entity>> {
+  +id_stock : int
+  +id_materia_prima : int
+  +stock_cantidad_minima : int
+  +stock_cantidad_maxima : int
+  +cantidad_existente : int
+  +deposito_id : int
+  +id_usuario : int
+}
+
+class usuarios <<entity>> {
+  +id_usuario : int
+  +username : String
+  +estado_usuario : String
+  +id_sucursal : int
+}
+
+class bitacora <<entity>> {
+  +id_bitacora : int
+  +id_usuario : int
+  +entidad_afectada : String
+  +id_registro : int
+  +accion_realizada : String
+  +descripcion_cambio : Text
+  +fecha_accion : DateTime
+}
+
+GUILista --> AjusteController
+GUIForm --> AjusteController
+
+AjusteController ..> conexion
+AjusteController ..> ajustes
+AjusteController ..> ajustes_detalle
+AjusteController ..> motivo
+AjusteController ..> deposito
+AjusteController ..> materia_prima
+AjusteController ..> stock_materia_prima
+AjusteController ..> usuarios
+AjusteController ..> bitacora
+
+usuarios "1" --> "0..*" ajustes
+deposito "1" --> "0..*" ajustes
+
+ajustes "1" *-- "1..*" ajustes_detalle
+motivo "1" --> "0..*" ajustes_detalle
+stock_materia_prima "1" --> "0..*" ajustes_detalle
+materia_prima "1" --> "0..*" ajustes_detalle
+
+materia_prima "1" --> "0..*" stock_materia_prima
+deposito "1" --> "0..*" stock_materia_prima
+
+@enduml

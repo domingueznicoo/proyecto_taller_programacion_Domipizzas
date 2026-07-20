@@ -1,0 +1,178 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+left to right direction
+
+title Diagrama de Clases - Caso de Uso "Registrar Presupuesto"
+
+class "GUI Lista de Presupuestos" as GUILista <<boundary>> {
+  +btn_nuevo
+  +btn_buscador
+  +tbl_presupuestos
+  +btn_editar
+  +btn_anular
+  +btn_anterior
+  +btn_siguiente
+  +index() : void
+  +editar() : void
+  +anular() : void
+}
+
+class "GUI Presupuesto" as GUIForm <<boundary>> {
+  +txt_fecha
+  +select_proveedor
+  +select_pedido_compra
+  +tbl_detalle
+  +txt_descuento
+  +txt_observacion
+  +txt_total
+  +btn_guardar
+  +btn_cancelar
+  +btn_cerrar
+  +guardar() : void
+}
+
+class PresupuestoCompraController <<control>> {
+  +listarPresupuestos() : void
+  +cargarContexto() : void
+  +cargarPedidosPendientes() : void
+  +cargarProveedores() : void
+  +precargarDetallePedido() : void
+  +calcularTotales() : void
+  +validarDetalle() : boolean
+  +registrarPresupuesto() : void
+  +editarPresupuesto() : void
+  +anularPresupuesto() : void
+  +validarVinculosPosteriores() : boolean
+  +registrarBitacora() : void
+}
+
+class conexion <<control>> {
+  -host : String
+  -puerto : int
+  -nombre_bd : String
+  -contraseña : String
+  +conector() : Connection
+}
+
+class presupuesto_compra <<entity>> {
+  +id_presupuesto_compra : int
+  +presu_total : int
+  +presu_fecha : Date
+  +presu_estado : String
+  +id_pedido_compra : int
+  +id_usuario : int
+  +id_sucursal : int
+  +id_proveedor : int
+  +descuento_total : Decimal
+  +presu_observaciones : Text
+  +presu_ultima_modificacion : DateTime
+}
+
+class presupuesto_detalle_compra <<entity>> {
+  +id_presupuesto_compra : int
+  +id_materia_prima : int
+  +detalle_presu_cantidad : int
+  +detalle_presu_precio_compra : int
+  +descuento : Decimal
+  +detalle_presu_iva : Decimal
+}
+
+class pedidos_compra <<entity>> {
+  +id_pedido_compra : int
+  +pedido_fecha_emision : Date
+  +pedido_estado : String
+  +id_usuario : int
+  +id_sucursal : int
+  +pedido_observaciones : Text
+}
+
+class pedido_detalle_compra <<entity>> {
+  +id_pedido_compra : int
+  +id_materia_prima : int
+  +cantidad_pedido : int
+}
+
+class proveedor <<entity>> {
+  +id_proveedor : int
+  +id_usuario : int
+  +razon_social : String
+  +ruc_proveedor : String
+  +telefono_proveedor : String
+  +direccion_proveedor : String
+  +email_proveedor : String
+  +estado_proveedor : String
+}
+
+class materia_prima <<entity>> {
+  +id_materia_prima : int
+  +materia_prima_descripcion : String
+  +materia_prima_estado : String
+  +id_unidad : int
+  +id_usuario : int
+  +iva_id : int
+}
+
+class tipo_iva <<entity>> {
+  +iva_id : int
+  +iva_descri : String
+  +id_usuario : int
+}
+
+class usuarios <<entity>> {
+  +id_usuario : int
+  +estado_usuario : String
+  +id_sucursal : int
+  +modulo_id : int
+  +username : String
+  +usua_password : String
+  +id_cargo : int
+  +id_personal : int
+}
+
+class sucursales <<entity>> {
+  +id_sucursal : int
+  +descripcion_sucursal : String
+  +estado_sucursal : String
+  +id_usuario : int
+}
+
+class bitacora <<entity>> {
+  +id_bitacora : int
+  +id_usuario : int
+  +entidad_afectada : String
+  +id_registro : int
+  +accion_realizada : String
+  +descripcion_cambio : Text
+  +fecha_accion : DateTime
+  +ip_origen : String
+  +navegador_usuario : String
+  +estado_registro : String
+}
+
+GUILista --> PresupuestoCompraController
+GUIForm --> PresupuestoCompraController
+
+PresupuestoCompraController ..> conexion
+PresupuestoCompraController ..> presupuesto_compra
+PresupuestoCompraController ..> presupuesto_detalle_compra
+PresupuestoCompraController ..> pedidos_compra
+PresupuestoCompraController ..> pedido_detalle_compra
+PresupuestoCompraController ..> proveedor
+PresupuestoCompraController ..> materia_prima
+PresupuestoCompraController ..> tipo_iva
+PresupuestoCompraController ..> usuarios
+PresupuestoCompraController ..> sucursales
+PresupuestoCompraController ..> bitacora
+
+pedidos_compra "1" --> "0..*" presupuesto_compra
+proveedor "1" --> "0..*" presupuesto_compra
+usuarios "1" --> "0..*" presupuesto_compra
+sucursales "1" --> "0..*" presupuesto_compra
+presupuesto_compra "1" *-- "1..*" presupuesto_detalle_compra
+materia_prima "1" --> "0..*" presupuesto_detalle_compra
+materia_prima "1" --> "1" tipo_iva
+pedidos_compra "1" *-- "1..*" pedido_detalle_compra
+materia_prima "1" --> "0..*" pedido_detalle_compra
+
+@enduml

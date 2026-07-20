@@ -1,0 +1,129 @@
+@startuml
+title Registrar Equipos de Trabajo – Botón: Guardar / Editar / Anular
+
+autonumber
+
+actor "Encargado de Producción" as ENC
+boundary "GUI Lista de Equipos" as GUILista
+boundary "GUI Equipo de Trabajo" as GUIForm
+control "EquipoProduccionController" as CTRL
+control "conexion" as CONX
+entity "equipos_produccion" as EQ
+entity "equipo_detalle" as EQDET
+entity "orden_produccion" as OP
+entity "etapa_produccion" as ETAPA
+entity "trabajadores" as TRAB
+entity "usuarios" as USU
+entity "sucursales" as SUC
+entity "bitacora" as BIT
+
+ENC -> GUILista : Accede a Producción → Equipos de trabajo
+GUILista -> CTRL : listarEquipos()
+CTRL -> CONX : conector()
+CONX --> CTRL : Connection
+CTRL -> EQ : consultar_equipos()
+EQ --> CTRL : lista_equipos
+CTRL -> GUILista : mostrar lista principal
+
+ENC -> GUILista : Clic en "Nuevo"
+GUILista -> GUIForm : abrir formulario de equipo
+
+GUIForm -> CTRL : cargarContexto()
+CTRL -> USU : consultar_usuario(id_usuario)
+USU --> CTRL : datos_usuario
+CTRL -> SUC : consultar_sucursal(id_sucursal)
+SUC --> CTRL : datos_sucursal
+CTRL -> OP : consultar_ordenes_produccion_validas()
+OP --> CTRL : lista_ordenes
+CTRL -> TRAB : consultar_trabajadores_activos()
+TRAB --> CTRL : lista_trabajadores
+CTRL -> GUIForm : mostrar contexto, órdenes y trabajadores
+
+ENC -> GUIForm : Selecciona orden de producción
+GUIForm -> CTRL : cargarEtapasProduccion(orden_id)
+CTRL -> ETAPA : consultar_etapas_por_orden(orden_id)
+ETAPA --> CTRL : lista_etapas
+CTRL -> GUIForm : mostrar etapas de producción
+
+ENC -> GUIForm : Selecciona etapa, trabajador e ingresa tarea
+ENC -> GUIForm : Clic en "Agregar integrante"
+
+GUIForm -> CTRL : validarIntegrante(trabajadores_id, tarea_rol)
+CTRL --> GUIForm : integrante válido / inválido
+GUIForm -> ENC : Mostrar error si existe duplicado o campo vacío
+
+GUIForm -> CTRL : agregarIntegrante(trabajadores_id, tarea_rol)
+CTRL -> GUIForm : agregar integrante al detalle
+
+ENC -> GUIForm : Clic en "Guardar"
+GUIForm -> CTRL : validarDetalle(detalle)
+CTRL --> GUIForm : detalle válido / inválido
+GUIForm -> ENC : Mostrar error si no existen integrantes
+
+GUIForm -> CTRL : registrarEquipo(datos_equipo, detalle)
+
+CTRL -> EQ : insertar_equipo(equipo_descri, equipo_fecha, equipo_estado, orden_id, etapa_id, id_usuario, id_sucursal)
+EQ --> CTRL : equipo_id
+
+CTRL -> EQDET : insertar_detalle_equipo(equipo_id, trabajadores_id, tarea_rol)
+EQDET --> CTRL : detalle registrado
+
+CTRL -> BIT : registrarBitacora(id_usuario, accion_realizada, fecha_accion)
+BIT --> CTRL : registro exitoso
+
+CTRL -> GUIForm : mostrar confirmación
+GUIForm -> GUILista : actualizar lista principal
+
+ENC -> GUILista : Selecciona equipo Pendiente y clic en "Editar"
+GUILista -> CTRL : obtenerEquipo(equipo_id)
+
+CTRL -> EQ : consultar_equipo(equipo_id)
+EQ --> CTRL : datos_equipo
+
+CTRL -> EQDET : consultar_detalle_equipo(equipo_id)
+EQDET --> CTRL : detalle_equipo
+
+CTRL -> GUIForm : mostrar formulario con datos cargados
+
+ENC -> GUIForm : Modifica nombre, fecha, integrantes o tareas
+GUIForm -> CTRL : validarDetalle(detalle)
+CTRL --> GUIForm : detalle válido / inválido
+GUIForm -> ENC : Mostrar error si existen datos inválidos
+
+ENC -> GUIForm : Clic en "Guardar"
+GUIForm -> CTRL : editarEquipo(equipo_id, datos_equipo, detalle)
+
+CTRL -> EQ : actualizar_equipo(equipo_id, datos_equipo)
+EQ --> CTRL : actualización exitosa
+
+CTRL -> EQDET : actualizar_detalle_equipo(equipo_id, detalle)
+EQDET --> CTRL : detalle actualizado
+
+CTRL -> BIT : registrarBitacora(id_usuario, accion_realizada, fecha_accion)
+BIT --> CTRL : registro exitoso
+
+CTRL -> GUIForm : mostrar confirmación
+GUIForm -> GUILista : actualizar lista principal
+
+ENC -> GUILista : Selecciona equipo y clic en "Anular"
+GUILista -> ENC : Solicitar confirmación
+
+ENC -> GUILista : Confirma anulación
+GUILista -> CTRL : anularEquipo(equipo_id)
+
+CTRL -> EQ : validar_estado_equipo(equipo_id)
+EQ --> CTRL : estado_equipo
+
+CTRL -> EQ : validarReferencias(equipo_id)
+EQ --> CTRL : sin referencias / con referencias
+
+CTRL -> EQ : actualizar_estado_anulado(equipo_id)
+EQ --> CTRL : anulación exitosa
+
+CTRL -> BIT : registrarBitacora(id_usuario, accion_realizada, fecha_accion)
+BIT --> CTRL : registro exitoso
+
+CTRL -> GUILista : mostrar confirmación o error
+GUILista -> ENC : actualizar lista principal
+
+@enduml

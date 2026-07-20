@@ -1,0 +1,154 @@
+@startuml
+title Registrar Costos de Producción – Botón: Guardar / Editar / Cerrar / Anular
+
+autonumber
+
+actor "Encargado de Producción" as ENC
+boundary "GUI Lista de Costos de Producción" as GUILista
+boundary "GUI Costos de Producción" as GUIForm
+control "CostoProduccionController" as CTRL
+control "conexion" as CONX
+entity "costo_produccion" as COSTO
+entity "costo_detalle_produccion" as COSTODET
+entity "orden_produccion" as OP
+entity "control_produccion" as CTRLPROD
+entity "control_produccion_consumo" as CONSUMO
+entity "materia_prima" as MP
+entity "trabajadores" as TRAB
+entity "usuarios" as USU
+entity "bitacora" as BIT
+
+ENC -> GUILista : Accede a Producción → Costos de producción
+GUILista -> CTRL : listarCostos()
+CTRL -> CONX : conector()
+CONX --> CTRL : Connection
+CTRL -> COSTO : consultar_costos()
+COSTO --> CTRL : lista_costos
+CTRL -> GUILista : mostrar lista principal
+
+ENC -> GUILista : Clic en "Nuevo costeo"
+GUILista -> GUIForm : abrir formulario de costeo
+
+GUIForm -> CTRL : cargarContexto()
+CTRL -> USU : consultar_usuario(id_usuario)
+USU --> CTRL : datos_usuario
+CTRL -> OP : consultar_ordenes_con_control_y_consumos()
+OP --> CTRL : lista_ordenes_disponibles
+CTRL -> TRAB : consultar_trabajadores_activos()
+TRAB --> CTRL : lista_trabajadores
+CTRL -> GUIForm : mostrar contexto, OP disponibles y trabajadores
+
+ENC -> GUIForm : Selecciona OP
+GUIForm -> CTRL : validarCosteoActivo(orden_id)
+CTRL -> COSTO : consultar_costeo_activo(orden_id)
+COSTO --> CTRL : sin costeo activo / con costeo activo
+CTRL --> GUIForm : OP válida / inválida
+
+GUIForm -> CTRL : precargarConsumosMP(orden_id)
+
+CTRL -> CTRLPROD : consultar_control_produccion(orden_id)
+CTRLPROD --> CTRL : datos_control
+
+CTRL -> CONSUMO : consultar_consumos_mp(control_id)
+CONSUMO --> CTRL : consumos_materia_prima
+
+CTRL -> MP : consultar_materias_primas(consumos_materia_prima)
+MP --> CTRL : datos_materias_primas
+
+CTRL -> GUIForm : mostrar líneas de MP precargadas
+
+ENC -> GUIForm : Ajusta precio unitario de MP
+ENC -> GUIForm : Agrega mano de obra
+GUIForm -> CTRL : agregarManoObra(trabajadores_id, horas, costo_hora)
+CTRL --> GUIForm : línea MO agregada / error
+
+ENC -> GUIForm : Agrega costo indirecto
+GUIForm -> CTRL : agregarCostoIndirecto(concepto, importe)
+CTRL --> GUIForm : línea CIF agregada / error
+
+GUIForm -> CTRL : calcularTotales(detalle_costeo)
+CTRL --> GUIForm : total MP, MO, CIF y total general
+
+ENC -> GUIForm : Clic en "Guardar costeo"
+GUIForm -> CTRL : validarCosteo(datos_costeo, detalle_costeo)
+CTRL --> GUIForm : costeo válido / inválido
+GUIForm -> ENC : Mostrar error si existen datos inválidos
+
+GUIForm -> CTRL : registrarCosteo(datos_costeo, detalle_costeo)
+
+CTRL -> COSTO : insertar_costo(costo_fecha, costo_total, costo_estado, orden_id, id_usuario)
+COSTO --> CTRL : costo_id
+
+CTRL -> COSTODET : insertar_detalle_costo(costo_id, costo_tipo, id_materia_prima, trabajadores_id, costo_concepto, costo_cantidad, costo_precio)
+COSTODET --> CTRL : detalle registrado
+
+CTRL -> BIT : registrarBitacora(id_usuario, accion_realizada, fecha_accion)
+BIT --> CTRL : registro exitoso
+
+CTRL -> GUIForm : mostrar confirmación
+GUIForm -> GUILista : actualizar lista principal
+
+ENC -> GUILista : Selecciona costeo Pendiente y clic en "Editar"
+GUILista -> CTRL : obtenerCosteo(costo_id)
+
+CTRL -> COSTO : consultar_costo(costo_id)
+COSTO --> CTRL : datos_costo
+
+CTRL -> COSTODET : consultar_detalle_costo(costo_id)
+COSTODET --> CTRL : detalle_costo
+
+CTRL -> GUIForm : mostrar formulario con datos cargados
+
+ENC -> GUIForm : Ajusta fecha, precios MP, MO o CIF
+GUIForm -> CTRL : calcularTotales(detalle_costeo)
+CTRL --> GUIForm : total actualizado
+
+GUIForm -> CTRL : validarCosteo(datos_costeo, detalle_costeo)
+CTRL --> GUIForm : costeo válido / inválido
+
+ENC -> GUIForm : Clic en "Guardar"
+GUIForm -> CTRL : editarCosteo(costo_id, datos_costeo, detalle_costeo)
+
+CTRL -> COSTO : actualizar_costo(costo_id, datos_costo)
+COSTO --> CTRL : actualización exitosa
+
+CTRL -> COSTODET : actualizar_detalle_costo(costo_id, detalle_costeo)
+COSTODET --> CTRL : detalle actualizado
+
+CTRL -> BIT : registrarBitacora(id_usuario, accion_realizada, fecha_accion)
+BIT --> CTRL : registro exitoso
+
+CTRL -> GUIForm : mostrar confirmación
+GUIForm -> GUILista : actualizar lista principal
+
+ENC -> GUILista : Selecciona costeo Pendiente y clic en "Cerrar"
+GUILista -> ENC : Solicitar confirmación
+
+ENC -> GUILista : Confirma cierre
+GUILista -> CTRL : cerrarCosteo(costo_id)
+
+CTRL -> COSTO : actualizar_estado_cerrado(costo_id)
+COSTO --> CTRL : cierre exitoso
+
+CTRL -> BIT : registrarBitacora(id_usuario, accion_realizada, fecha_accion)
+BIT --> CTRL : registro exitoso
+
+CTRL -> GUILista : mostrar confirmación
+GUILista -> ENC : actualizar lista principal
+
+ENC -> GUILista : Selecciona costeo y clic en "Anular"
+GUILista -> ENC : Solicitar confirmación
+
+ENC -> GUILista : Confirma anulación
+GUILista -> CTRL : anularCosteo(costo_id)
+
+CTRL -> COSTO : actualizar_estado_anulado(costo_id)
+COSTO --> CTRL : anulación exitosa
+
+CTRL -> BIT : registrarBitacora(id_usuario, accion_realizada, fecha_accion)
+BIT --> CTRL : registro exitoso
+
+CTRL -> GUILista : mostrar confirmación o error
+GUILista -> ENC : actualizar lista principal
+
+@enduml

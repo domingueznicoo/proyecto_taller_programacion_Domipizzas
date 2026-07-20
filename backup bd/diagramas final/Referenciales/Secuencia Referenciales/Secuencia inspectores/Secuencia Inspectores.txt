@@ -1,0 +1,100 @@
+@startuml
+title Mantener Inspectores – Botón: Guardar / Editar / Inactivar
+
+autonumber
+
+actor "Administrador" as ADM
+boundary "GUI Lista Inspectores" as GUILista
+boundary "GUI Inspector" as GUIForm
+control "InspectorController" as CTRL
+control "conexion" as CONX
+entity "inspectores" as INS
+entity "personal" as PER
+entity "control_calidad_produccion" as CCP
+entity "bitacora" as BIT
+
+ADM -> GUILista : Accede a Referenciales → Producción → Inspectores
+GUILista -> CTRL : listarInspectores()
+
+CTRL -> CONX : conector()
+CONX --> CTRL : Connection
+
+CTRL -> INS : consultar_inspectores()
+INS --> CTRL : lista_inspectores
+
+CTRL -> GUILista : mostrar lista principal
+
+ADM -> GUILista : Clic en "Nuevo Inspector"
+GUILista -> GUIForm : abrir formulario
+
+GUIForm -> CTRL : cargarPersonalActivo()
+
+CTRL -> PER : consultar_personal_activo()
+PER --> CTRL : lista_personal
+
+CTRL -> GUIForm : mostrar personal disponible
+
+ADM -> GUIForm : Selecciona personal
+ADM -> GUIForm : Clic en "Guardar"
+
+GUIForm -> CTRL : validarPersonal(id_personal)
+
+CTRL -> INS : verificar_inspector_activo(id_personal)
+INS --> CTRL : resultado_validacion
+
+CTRL -> INS : generar_codigo()
+INS --> CTRL : codigo_correlativo
+
+CTRL -> INS : registrar_inspector(id_personal, estado, id_usuario)
+INS --> CTRL : registro_exitoso
+
+CTRL -> BIT : registrarBitacora(id_usuario, accion_realizada, fecha_accion)
+BIT --> CTRL : registro exitoso
+
+CTRL -> GUIForm : mostrar confirmación
+GUIForm -> GUILista : actualizar lista principal
+
+ADM -> GUILista : Selecciona inspector y clic en "Editar"
+GUILista -> CTRL : obtenerInspector(id_inspector)
+
+CTRL -> INS : consultar_inspector(id_inspector)
+INS --> CTRL : datos_inspector
+
+CTRL -> GUIForm : mostrar formulario con datos cargados
+
+ADM -> GUIForm : Modifica personal o estado
+ADM -> GUIForm : Clic en "Guardar"
+
+GUIForm -> CTRL : validarPersonal(id_personal)
+
+CTRL -> INS : verificar_inspector_activo(id_personal)
+INS --> CTRL : resultado_validacion
+
+CTRL -> INS : actualizar_inspector(id_inspector, datos)
+INS --> CTRL : actualizacion_exitosa
+
+CTRL -> BIT : registrarBitacora(id_usuario, accion_realizada, fecha_accion)
+BIT --> CTRL : registro exitoso
+
+CTRL -> GUIForm : mostrar confirmación
+GUIForm -> GUILista : actualizar lista principal
+
+ADM -> GUILista : Selecciona inspector y clic en "Inactivar"
+GUILista -> ADM : Solicitar confirmación
+
+ADM -> GUILista : Confirmar inactivación
+GUILista -> CTRL : inactivarInspector(id_inspector)
+
+CTRL -> CCP : verificar_inspecciones_asociadas(id_inspector)
+CCP --> CTRL : resultado
+
+CTRL -> INS : actualizar_estado(id_inspector, INACTIVO)
+INS --> CTRL : actualizacion_exitosa
+
+CTRL -> BIT : registrarBitacora(id_usuario, accion_realizada, fecha_accion)
+BIT --> CTRL : registro exitoso
+
+CTRL -> GUILista : mostrar confirmación o error
+GUILista -> ADM : actualizar lista principal
+
+@enduml

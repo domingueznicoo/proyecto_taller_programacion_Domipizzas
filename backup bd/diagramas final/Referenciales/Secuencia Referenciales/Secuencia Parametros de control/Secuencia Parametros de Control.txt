@@ -1,0 +1,97 @@
+@startuml
+title Mantener Parámetros de Control de Calidad – Botón: Guardar / Editar / Eliminar
+
+autonumber
+
+actor "Administrador del sistema" as ADM
+boundary "GUI Lista de Parámetros" as GUILista
+boundary "GUI Parámetros de Control" as GUIForm
+control "ParametroControlController" as CTRL
+control "conexion" as CONX
+entity "productos" as PROD
+entity "parametros_control" as PARAM
+entity "bitacora" as BIT
+
+ADM -> GUILista : Accede a Parámetros de Control
+GUILista -> CTRL : listarParametros()
+CTRL -> CONX : conector()
+CONX --> CTRL : Connection
+CTRL -> PROD : consultar_productos_activos()
+PROD --> CTRL : lista_productos
+CTRL -> PARAM : consultar_parametros()
+PARAM --> CTRL : lista_parametros
+CTRL -> GUILista : mostrar lista principal
+
+ADM -> GUILista : Clic en "Nuevo"
+GUILista -> GUIForm : abrir formulario vacío
+
+GUIForm -> CTRL : cargarProductos()
+CTRL -> PROD : consultar_productos_activos()
+PROD --> CTRL : lista_productos
+CTRL -> GUIForm : mostrar productos
+
+ADM -> GUIForm : Selecciona producto, descripción y estado
+GUIForm -> CTRL : validarCampos(datos_parametro)
+CTRL --> GUIForm : campos válidos / inválidos
+GUIForm -> ADM : Mostrar error si existen campos inválidos
+
+ADM -> GUIForm : Clic en "Guardar"
+GUIForm -> CTRL : guardarParametro(datos_parametro)
+
+CTRL -> PARAM : validar_unicidad(producto_id, parametro_descri)
+PARAM --> CTRL : sin duplicado / duplicado activo
+
+CTRL -> PARAM : insertar_parametro(producto_id, parametro_descri, parametro_estado)
+PARAM --> CTRL : parametro_id
+
+CTRL -> BIT : registrarBitacora(id_usuario, accion_realizada, fecha_accion)
+BIT --> CTRL : registro exitoso
+
+CTRL -> GUIForm : mostrar confirmación
+GUIForm -> GUILista : actualizar lista principal
+
+ADM -> GUILista : Selecciona parámetro y clic en "Editar"
+GUILista -> CTRL : obtenerParametro(parametro_id)
+CTRL -> PARAM : consultar_parametro(parametro_id)
+PARAM --> CTRL : datos_parametro
+CTRL -> GUIForm : mostrar formulario con datos cargados
+
+ADM -> GUIForm : Modifica descripción y/o estado
+GUIForm -> CTRL : validarCampos(datos_parametro)
+CTRL --> GUIForm : campos válidos / inválidos
+GUIForm -> ADM : Mostrar error si existen campos inválidos
+
+ADM -> GUIForm : Clic en "Guardar"
+GUIForm -> CTRL : editarParametro(parametro_id, datos_parametro)
+
+CTRL -> PARAM : validar_unicidad(producto_id, parametro_descri)
+PARAM --> CTRL : sin duplicado / duplicado activo
+
+CTRL -> PARAM : actualizar_parametro(parametro_id, datos_parametro)
+PARAM --> CTRL : actualización exitosa
+
+CTRL -> BIT : registrarBitacora(id_usuario, accion_realizada, fecha_accion)
+BIT --> CTRL : registro exitoso
+
+CTRL -> GUIForm : mostrar confirmación
+GUIForm -> GUILista : actualizar lista principal
+
+ADM -> GUILista : Selecciona parámetro y clic en "Eliminar"
+GUILista -> ADM : Solicitar confirmación
+
+ADM -> GUILista : Confirma eliminación
+GUILista -> CTRL : inactivarParametro(parametro_id)
+
+CTRL -> PARAM : validar_referencias(parametro_id)
+PARAM --> CTRL : sin referencias / con referencias
+
+CTRL -> PARAM : inactivar_parametro(parametro_id)
+PARAM --> CTRL : inactivación exitosa
+
+CTRL -> BIT : registrarBitacora(id_usuario, accion_realizada, fecha_accion)
+BIT --> CTRL : registro exitoso
+
+CTRL -> GUILista : mostrar confirmación o error
+GUILista -> ADM : actualizar lista principal
+
+@enduml

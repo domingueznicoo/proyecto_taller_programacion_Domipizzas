@@ -1,0 +1,143 @@
+@startuml
+title Registrar Orden de Producción – Botón: Guardar / Editar / Anular
+
+autonumber
+
+actor "Encargado de Producción" as ENC
+boundary "GUI Lista de Órdenes de Producción" as GUILista
+boundary "GUI Orden de Producción" as GUIForm
+control "OrdenProduccionController" as CTRL
+control "conexion" as CONX
+entity "orden_produccion" as OP
+entity "orden_detalle_produccion" as OPDET
+entity "pedido_produccion" as PED
+entity "pedido_detalle_produccion" as PEDDET
+entity "productos" as PROD
+entity "usuarios" as USU
+entity "sucursales" as SUC
+entity "bitacora" as BIT
+
+ENC -> GUILista : Accede a Producción → Órdenes de producción
+GUILista -> CTRL : listarOrdenes()
+CTRL -> CONX : conector()
+CONX --> CTRL : Connection
+CTRL -> OP : consultar_ordenes_produccion()
+OP --> CTRL : lista_ordenes
+CTRL -> GUILista : mostrar lista principal
+
+ENC -> GUILista : Clic en "Nuevo"
+GUILista -> GUIForm : abrir formulario de orden
+
+GUIForm -> CTRL : cargarContexto()
+CTRL -> USU : consultar_usuario(id_usuario)
+USU --> CTRL : datos_usuario
+CTRL -> SUC : consultar_sucursal(id_sucursal)
+SUC --> CTRL : datos_sucursal
+CTRL -> PED : consultar_pedidos_pendientes_sin_op()
+PED --> CTRL : lista_pedidos_pendientes
+CTRL -> GUIForm : mostrar contexto y pedidos pendientes
+
+ENC -> GUIForm : Selecciona pedido de producción
+GUIForm -> CTRL : precargarDetallePedido(id_pedido_produccion)
+
+CTRL -> PED : consultar_pedido_produccion(id_pedido_produccion)
+PED --> CTRL : datos_pedido
+
+CTRL -> PEDDET : consultar_detalle_pedido(id_pedido_produccion)
+PEDDET --> CTRL : detalle_pedido
+
+CTRL -> PROD : consultar_productos(detalle_pedido)
+PROD --> CTRL : datos_productos
+
+CTRL -> GUIForm : mostrar detalle precargado
+
+ENC -> GUIForm : Ingresa fecha de entrega prevista
+GUIForm -> CTRL : validarFechaEntrega(fecha_entrega)
+CTRL --> GUIForm : fecha válida / inválida
+GUIForm -> ENC : Mostrar error si fecha inválida
+
+GUIForm -> CTRL : validarDetalle(detalle)
+CTRL --> GUIForm : detalle válido / inválido
+GUIForm -> ENC : Mostrar error si no existen productos activos
+
+GUIForm -> CTRL : validarPedidoSinOrdenActiva(id_pedido_produccion)
+CTRL -> OP : consultar_op_activa_por_pedido(id_pedido_produccion)
+OP --> CTRL : sin OP activa / con OP activa
+CTRL --> GUIForm : pedido válido / inválido
+
+ENC -> GUIForm : Clic en "Guardar"
+GUIForm -> CTRL : registrarOrden(datos_orden, detalle)
+
+CTRL -> OP : insertar_orden_produccion(orden_prod_fecha, orden_prod_fecha_entrega, orden_prod_estado, id_pedido_produccion, id_usuario)
+OP --> CTRL : orden_id
+
+CTRL -> OPDET : insertar_detalle_orden(orden_id, producto_id, orden_prod_cantidad, cantidad_pendiente)
+OPDET --> CTRL : detalle registrado
+
+CTRL -> PED : actualizar_estado_asignado(id_pedido_produccion)
+PED --> CTRL : actualización exitosa
+
+CTRL -> BIT : registrarBitacora(id_usuario, accion_realizada, fecha_accion)
+BIT --> CTRL : registro exitoso
+
+CTRL -> GUIForm : mostrar confirmación
+GUIForm -> GUILista : actualizar lista principal
+
+ENC -> GUILista : Selecciona OP Pendiente y clic en "Editar"
+GUILista -> CTRL : obtenerOrden(orden_id)
+
+CTRL -> OP : consultar_orden_produccion(orden_id)
+OP --> CTRL : datos_orden
+
+CTRL -> OPDET : consultar_detalle_orden(orden_id)
+OPDET --> CTRL : detalle_orden
+
+CTRL -> GUIForm : mostrar formulario con datos cargados
+
+ENC -> GUIForm : Modifica fecha de entrega prevista
+GUIForm -> CTRL : validarFechaEntrega(fecha_entrega)
+CTRL --> GUIForm : fecha válida / inválida
+GUIForm -> ENC : Mostrar error si fecha inválida
+
+GUIForm -> CTRL : validarControlProduccion(orden_id)
+CTRL -> OP : verificar_control_produccion(orden_id)
+OP --> CTRL : sin control / con control
+CTRL --> GUIForm : edición permitida / bloqueada
+
+ENC -> GUIForm : Clic en "Guardar"
+GUIForm -> CTRL : editarOrden(orden_id, fecha_entrega)
+
+CTRL -> OP : actualizar_fecha_entrega(orden_id, fecha_entrega)
+OP --> CTRL : actualización exitosa
+
+CTRL -> BIT : registrarBitacora(id_usuario, accion_realizada, fecha_accion)
+BIT --> CTRL : registro exitoso
+
+CTRL -> GUIForm : mostrar confirmación
+GUIForm -> GUILista : actualizar lista principal
+
+ENC -> GUILista : Selecciona OP y clic en "Anular"
+GUILista -> ENC : Solicitar confirmación
+
+ENC -> GUILista : Confirma anulación
+GUILista -> CTRL : anularOrden(orden_id)
+
+CTRL -> OP : verificar_estado_pendiente(orden_id)
+OP --> CTRL : estado_orden
+
+CTRL -> OP : verificar_control_produccion(orden_id)
+OP --> CTRL : sin control / con control
+
+CTRL -> OP : actualizar_estado_anulado(orden_id)
+OP --> CTRL : anulación exitosa
+
+CTRL -> PED : actualizar_estado_pendiente(id_pedido_produccion)
+PED --> CTRL : actualización exitosa
+
+CTRL -> BIT : registrarBitacora(id_usuario, accion_realizada, fecha_accion)
+BIT --> CTRL : registro exitoso
+
+CTRL -> GUILista : mostrar confirmación o error
+GUILista -> ENC : actualizar lista principal
+
+@enduml

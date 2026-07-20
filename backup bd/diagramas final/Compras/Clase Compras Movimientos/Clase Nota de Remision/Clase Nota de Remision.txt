@@ -1,0 +1,181 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+left to right direction
+
+title Diagrama de Clases - Caso de Uso "Registrar Nota de Remisión"
+
+class "GUI Lista de Notas de Remisión" as GUILista <<boundary>> {
+  +btn_nuevo
+  +btn_buscador
+  +tbl_notas
+  +btn_detalle
+  +btn_editar
+  +btn_anular
+  +btn_anterior
+  +btn_siguiente
+  +index() : void
+  +editar() : void
+  +anular() : void
+}
+
+class "GUI Nota de Remisión" as GUIForm <<boundary>> {
+  +txt_fecha
+  +txt_nro_interno
+  +txt_nro_legal
+  +txt_timbrado
+  +txt_vehiculo
+  +txt_conductor
+  +select_proveedor
+  +select_orden_compra
+  +select_deposito
+  +tbl_detalle
+  +btn_quitar
+  +btn_guardar
+  +btn_cancelar
+  +btn_cerrar
+  +guardar() : void
+}
+
+class NotaRemisionCompraController <<control>> {
+  +listarNotasRemision() : void
+  +cargarContexto() : void
+  +cargarOrdenesEmitidas() : void
+  +precargarDetalleOrden() : void
+  +validarNotaRemision() : boolean
+  +registrarNotaRemision() : void
+  +editarNotaRemision() : void
+  +anularNotaRemision() : void
+  +actualizarStock() : void
+  +revertirStock() : void
+  +registrarBitacora() : void
+}
+
+class conexion <<control>> {
+  -host : String
+  -puerto : int
+  -nombre_bd : String
+  -contraseña : String
+  +conector() : Connection
+}
+
+class nota_remision_compra <<entity>> {
+  +id_nota_remision : int
+  +id_factura_compra : int
+  +nota_fecha : Date
+  +nota_remision_total : int
+  +nota_remision_nro : String
+  +nota_estado : String
+  +id_usuario : int
+  +id_proveedor : int
+  +deposito_id : int
+  +id_orden_compra : int
+}
+
+class nota_remision_detalle_compra <<entity>> {
+  +id_materia_prima : int
+  +id_nota_remision : int
+  +cantidad_recibida : int
+}
+
+class proveedor <<entity>> {
+  +id_proveedor : int
+  +razon_social : String
+  +ruc_proveedor : String
+  +estado_proveedor : String
+}
+
+class materia_prima <<entity>> {
+  +id_materia_prima : int
+  +materia_prima_descripcion : String
+  +materia_prima_estado : String
+}
+
+class deposito <<entity>> {
+  +deposito_id : int
+  +deposito_descri : String
+  +id_usuario : int
+}
+
+class orden_de_compra <<entity>> {
+  +id_orden_compra : int
+  +orden_fecha : Date
+  +orden_estado : String
+  +orden_total : int
+  +id_presupuesto_compra : int
+  +id_proveedor : int
+  +id_sucursal : int
+  +id_usuario : int
+  +orden_condicion : String
+}
+
+class orden_detalle_compra <<entity>> {
+  +id_materia_prima : int
+  +id_orden_compra : int
+  +oc_cantidad_compra : int
+  +oc_precio_compra : int
+}
+
+class stock_materia_prima <<entity>> {
+  +id_stock : int
+  +id_materia_prima : int
+  +stock_cantidad_minima : int
+  +stock_cantidad_maxima : int
+  +cantidad_existente : int
+  +deposito_id : int
+  +id_usuario : int
+}
+
+class usuarios <<entity>> {
+  +id_usuario : int
+  +username : String
+  +estado_usuario : String
+  +id_sucursal : int
+}
+
+class sucursales <<entity>> {
+  +id_sucursal : int
+  +descripcion_sucursal : String
+  +estado_sucursal : String
+}
+
+class bitacora <<entity>> {
+  +id_bitacora : int
+  +id_usuario : int
+  +entidad_afectada : String
+  +id_registro : int
+  +accion_realizada : String
+  +fecha_accion : DateTime
+}
+
+GUILista --> NotaRemisionCompraController
+GUIForm --> NotaRemisionCompraController
+
+NotaRemisionCompraController ..> conexion
+NotaRemisionCompraController ..> nota_remision_compra
+NotaRemisionCompraController ..> nota_remision_detalle_compra
+NotaRemisionCompraController ..> proveedor
+NotaRemisionCompraController ..> materia_prima
+NotaRemisionCompraController ..> deposito
+NotaRemisionCompraController ..> orden_de_compra
+NotaRemisionCompraController ..> orden_detalle_compra
+NotaRemisionCompraController ..> stock_materia_prima
+NotaRemisionCompraController ..> usuarios
+NotaRemisionCompraController ..> sucursales
+NotaRemisionCompraController ..> bitacora
+
+proveedor "1" --> "0..*" nota_remision_compra
+usuarios "1" --> "0..*" nota_remision_compra
+deposito "1" --> "0..*" nota_remision_compra
+orden_de_compra "1" --> "0..*" nota_remision_compra
+
+nota_remision_compra "1" *-- "1..*" nota_remision_detalle_compra
+materia_prima "1" --> "0..*" nota_remision_detalle_compra
+
+orden_de_compra "1" *-- "1..*" orden_detalle_compra
+materia_prima "1" --> "0..*" orden_detalle_compra
+
+materia_prima "1" --> "0..*" stock_materia_prima
+deposito "1" --> "0..*" stock_materia_prima
+
+@enduml

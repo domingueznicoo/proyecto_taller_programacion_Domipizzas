@@ -1,0 +1,78 @@
+@startuml
+title Mantener Proveedores – Botón: Guardar / Editar / Eliminar
+
+autonumber
+
+actor "Administrador del sistema" as ADM
+boundary "GUI Lista de Proveedores" as GUILista
+boundary "GUI Proveedores" as GUIForm
+control "ProveedorController" as CTRL
+control "conexion" as CONX
+entity "proveedor" as PROV
+entity "bitacora" as BIT
+
+ADM -> GUILista : Accede a Compras → Referenciales → Proveedores
+GUILista -> CTRL : listarProveedores()
+CTRL -> CONX : conector()
+CONX --> CTRL : Connection
+CTRL -> PROV : consultar_proveedores()
+PROV --> CTRL : lista_proveedores
+CTRL -> GUILista : mostrar lista principal
+
+ADM -> GUILista : Clic en "Nuevo"
+GUILista -> GUIForm : abrir formulario de registro
+
+ADM -> GUIForm : Ingresa razón social, RUC, teléfono, dirección y email
+GUIForm -> CTRL : validarCampos(datos_proveedor)
+CTRL --> GUIForm : campos válidos / inválidos
+GUIForm -> ADM : Mostrar error si existen campos inválidos
+
+ADM -> GUIForm : Clic en "Guardar"
+GUIForm -> CTRL : registrarProveedor(datos_proveedor)
+
+CTRL -> PROV : insertar_proveedor(razon_social, ruc_proveedor, telefono_proveedor, direccion_proveedor, email_proveedor)
+PROV --> CTRL : id_proveedor
+
+CTRL -> BIT : registrarBitacora(id_usuario, accion_realizada, fecha_accion)
+BIT --> CTRL : registro exitoso
+
+CTRL -> GUIForm : mostrar confirmación
+GUIForm -> GUILista : actualizar lista principal
+
+ADM -> GUILista : Selecciona proveedor y clic en "Editar"
+GUILista -> CTRL : obtenerProveedor(id_proveedor)
+CTRL -> PROV : consultar_proveedor(id_proveedor)
+PROV --> CTRL : datos_proveedor
+CTRL -> GUIForm : mostrar formulario con datos cargados
+
+ADM -> GUIForm : Modifica datos y clic en "Guardar"
+GUIForm -> CTRL : editarProveedor(id_proveedor, datos_proveedor)
+
+CTRL -> PROV : actualizar_proveedor(id_proveedor, datos_proveedor)
+PROV --> CTRL : actualización exitosa
+
+CTRL -> BIT : registrarBitacora(id_usuario, accion_realizada, fecha_accion)
+BIT --> CTRL : registro exitoso
+
+CTRL -> GUIForm : mostrar confirmación
+GUIForm -> GUILista : actualizar lista principal
+
+ADM -> GUILista : Selecciona proveedor y clic en "Eliminar"
+GUILista -> ADM : Solicitar confirmación
+
+ADM -> GUILista : Confirma eliminación
+GUILista -> CTRL : eliminarProveedor(id_proveedor)
+
+CTRL -> PROV : validar_vinculos(id_proveedor)
+PROV --> CTRL : sin vínculos / con vínculos
+
+CTRL -> PROV : eliminar_o_inactivar_proveedor(id_proveedor)
+PROV --> CTRL : eliminación/inactivación exitosa
+
+CTRL -> BIT : registrarBitacora(id_usuario, accion_realizada, fecha_accion)
+BIT --> CTRL : registro exitoso
+
+CTRL -> GUILista : mostrar confirmación o error
+GUILista -> ADM : actualizar lista principal
+
+@enduml

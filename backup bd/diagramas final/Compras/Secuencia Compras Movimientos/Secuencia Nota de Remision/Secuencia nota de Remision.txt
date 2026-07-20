@@ -1,0 +1,147 @@
+@startuml
+title Registrar Nota de Remisión – Botón: Guardar / Editar / Anular
+
+autonumber
+
+actor "Encargado de Compras" as ENC
+boundary "GUI Lista de Notas de Remisión" as GUILista
+boundary "GUI Nota de Remisión" as GUIForm
+control "NotaRemisionCompraController" as CTRL
+control "conexion" as CONX
+entity "nota_remision_compra" as NR
+entity "nota_remision_detalle_compra" as NRDET
+entity "proveedor" as PROV
+entity "materia_prima" as MP
+entity "deposito" as DEP
+entity "orden_de_compra" as OC
+entity "orden_detalle_compra" as OCDET
+entity "stock_materia_prima" as STOCK
+entity "usuarios" as USU
+entity "sucursales" as SUC
+entity "bitacora" as BIT
+
+ENC -> GUILista : Accede a Compras → Notas de Remisión
+GUILista -> CTRL : listarNotasRemision()
+CTRL -> CONX : conector()
+CONX --> CTRL : Connection
+CTRL -> NR : consultar_notas_remision()
+NR --> CTRL : lista_notas_remision
+CTRL -> GUILista : mostrar lista principal
+
+ENC -> GUILista : Clic en "Nuevo"
+GUILista -> GUIForm : abrir formulario de NR
+
+GUIForm -> CTRL : cargarContexto()
+CTRL -> USU : consultar_usuario(id_usuario)
+USU --> CTRL : datos_usuario
+CTRL -> SUC : consultar_sucursal(id_sucursal)
+SUC --> CTRL : datos_sucursal
+CTRL -> PROV : consultar_proveedores_activos()
+PROV --> CTRL : lista_proveedores
+CTRL -> DEP : consultar_depositos_activos()
+DEP --> CTRL : lista_depositos
+CTRL -> GUIForm : mostrar contexto, proveedores y depósitos
+
+ENC -> GUIForm : Ingresa vehículo y conductor
+ENC -> GUIForm : Selecciona proveedor
+
+GUIForm -> CTRL : cargarOrdenesEmitidas(id_proveedor)
+CTRL -> OC : consultar_ordenes_emitidas(id_proveedor)
+OC --> CTRL : lista_ordenes_emitidas
+CTRL -> GUIForm : mostrar órdenes emitidas
+
+ENC -> GUIForm : Selecciona orden de compra
+GUIForm -> CTRL : precargarDetalleOrden(id_orden_compra)
+
+CTRL -> OC : consultar_orden(id_orden_compra)
+OC --> CTRL : datos_orden
+
+CTRL -> OCDET : consultar_detalle_orden(id_orden_compra)
+OCDET --> CTRL : detalle_orden
+
+CTRL -> MP : consultar_materias_primas(detalle_orden)
+MP --> CTRL : datos_materias_primas
+
+CTRL -> GUIForm : mostrar detalle precargado
+
+ENC -> GUIForm : Selecciona depósito, ingresa número legal y timbrado
+ENC -> GUIForm : Ajusta cantidades recibidas
+
+GUIForm -> CTRL : validarNotaRemision(datos_nota, detalle)
+CTRL --> GUIForm : datos válidos / inválidos
+GUIForm -> ENC : Mostrar error si existen datos inválidos
+
+ENC -> GUIForm : Clic en "Guardar"
+GUIForm -> CTRL : registrarNotaRemision(datos_nota, detalle)
+
+CTRL -> NR : insertar_nota_remision(nota_fecha, nota_remision_total, nota_remision_nro, nota_estado, id_usuario, id_proveedor, deposito_id, id_orden_compra)
+NR --> CTRL : id_nota_remision
+
+CTRL -> NRDET : insertar_detalle_remision(id_nota_remision, id_materia_prima, cantidad_recibida)
+NRDET --> CTRL : detalle registrado
+
+CTRL -> STOCK : actualizar_stock_ingreso(id_materia_prima, deposito_id, cantidad_recibida)
+STOCK --> CTRL : stock actualizado
+
+CTRL -> BIT : registrarBitacora(id_usuario, accion_realizada, fecha_accion)
+BIT --> CTRL : registro exitoso
+
+CTRL -> GUIForm : mostrar confirmación
+GUIForm -> GUILista : actualizar lista principal
+
+ENC -> GUILista : Selecciona NR Emitida y clic en "Editar"
+GUILista -> CTRL : obtenerNotaRemision(id_nota_remision)
+
+CTRL -> NR : consultar_nota_remision(id_nota_remision)
+NR --> CTRL : datos_nota_remision
+
+CTRL -> NRDET : consultar_detalle_remision(id_nota_remision)
+NRDET --> CTRL : detalle_nota_remision
+
+CTRL -> GUIForm : mostrar formulario con datos cargados
+
+ENC -> GUIForm : Modifica datos logísticos y cantidades
+GUIForm -> CTRL : validarNotaRemision(datos_nota, detalle)
+CTRL --> GUIForm : datos válidos / inválidos
+GUIForm -> ENC : Mostrar error si existen datos inválidos
+
+ENC -> GUIForm : Clic en "Guardar"
+GUIForm -> CTRL : editarNotaRemision(id_nota_remision, datos_nota, detalle)
+
+CTRL -> NR : actualizar_nota_remision(id_nota_remision, datos_nota)
+NR --> CTRL : actualización exitosa
+
+CTRL -> NRDET : actualizar_detalle_remision(id_nota_remision, detalle)
+NRDET --> CTRL : detalle actualizado
+
+CTRL -> STOCK : ajustar_stock_diferencia(id_materia_prima, deposito_id, diferencia)
+STOCK --> CTRL : stock ajustado
+
+CTRL -> BIT : registrarBitacora(id_usuario, accion_realizada, fecha_accion)
+BIT --> CTRL : registro exitoso
+
+CTRL -> GUIForm : mostrar confirmación
+GUIForm -> GUILista : actualizar lista principal
+
+ENC -> GUILista : Selecciona NR y clic en "Anular"
+GUILista -> ENC : Solicitar confirmación
+
+ENC -> GUILista : Confirma anulación
+GUILista -> CTRL : anularNotaRemision(id_nota_remision)
+
+CTRL -> NR : verificar_estado_y_conciliacion(id_nota_remision)
+NR --> CTRL : permite anulación / no permite
+
+CTRL -> NR : actualizar_estado_anulado(id_nota_remision)
+NR --> CTRL : anulación exitosa
+
+CTRL -> STOCK : revertir_stock_remision(id_nota_remision)
+STOCK --> CTRL : stock revertido
+
+CTRL -> BIT : registrarBitacora(id_usuario, accion_realizada, fecha_accion)
+BIT --> CTRL : registro exitoso
+
+CTRL -> GUILista : mostrar confirmación o error
+GUILista -> ENC : actualizar lista principal
+
+@enduml

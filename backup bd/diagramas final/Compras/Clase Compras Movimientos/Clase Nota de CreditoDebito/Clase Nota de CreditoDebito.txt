@@ -1,0 +1,222 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+left to right direction
+
+title Diagrama de Clases - Caso de Uso "Registrar Nota de Crédito / Débito"
+
+class "GUI Lista de Notas" as GUILista <<boundary>> {
+  +btn_nuevo
+  +btn_buscador
+  +tbl_notas
+  +btn_detalle
+  +btn_anular
+  +btn_anterior
+  +btn_siguiente
+  +index() : void
+  +anular() : void
+}
+
+class "GUI Nota de Compra" as GUIForm <<boundary>> {
+  +txt_fecha
+  +select_tipo_nota
+  +select_proveedor
+  +select_factura
+  +txt_timbrado
+  +txt_nro_nota
+  +select_motivo
+  +tbl_detalle
+  +btn_quitar
+  +btn_guardar
+  +btn_cancelar
+  +btn_cerrar
+  +guardar() : void
+}
+
+class NotaCompraController <<control>> {
+  +listarNotas() : void
+  +cargarContexto() : void
+  +cargarFacturasEmitidas() : void
+  +precargarDetalleFactura() : void
+  +validarNota() : boolean
+  +calcularTotales() : void
+  +registrarNota() : void
+  +anularNota() : void
+  +actualizarCuentaPagar() : void
+  +actualizarStock() : void
+  +registrarBitacora() : void
+}
+
+class conexion <<control>> {
+  -host : String
+  -puerto : int
+  -nombre_bd : String
+  -contraseña : String
+  +conector() : Connection
+}
+
+class nota_compra <<entity>> {
+  +id_nota_compra : int
+  +nota_compra_tipo : String
+  +nota_compra_fecha : Date
+  +nota_nro : String
+  +nota_compra_timbrado : String
+  +nota_compra_inicio : Date
+  +nota_compra_vencimiento : Date
+  +nota_compra_estado : String
+  +nota_total : int
+  +id_usuario : int
+  +id_sucursal : int
+  +id_proveedor : int
+  +id_motivo : int
+  +id_factura_compra : int
+}
+
+class nota_detalle_compra <<entity>> {
+  +id_materia_prima : int
+  +id_nota_compra : int
+  +nota_compra_cantidad : int
+  +tipo_iva : Decimal
+  +nota_precio : int
+}
+
+class motivo <<entity>> {
+  +id_motivo : int
+  +motivo_descripcion : String
+  +id_usuario : int
+  +categoria_motivo : String
+}
+
+class factura_compra <<entity>> {
+  +id_factura_compra : int
+  +numero_factura : String
+  +timbrado : String
+  +fact_fecha_compra : Date
+  +fac_total : int
+  +fac_estado : String
+  +id_usuario : int
+  +id_sucursal : int
+  +id_orden_compra : int
+  +tipo_operacion : String
+}
+
+class factura_detalle_compra <<entity>> {
+  +id_materia_prima : int
+  +id_factura_compra : int
+  +fac_cantidad : int
+  +fac_iva : Decimal
+  +fac_precio : int
+}
+
+class proveedor <<entity>> {
+  +id_proveedor : int
+  +razon_social : String
+  +ruc_proveedor : String
+  +estado_proveedor : String
+}
+
+class materia_prima <<entity>> {
+  +id_materia_prima : int
+  +materia_prima_descripcion : String
+  +materia_prima_estado : String
+  +iva_id : int
+}
+
+class tipo_iva <<entity>> {
+  +iva_id : int
+  +iva_descri : String
+}
+
+class iva_compra <<entity>> {
+  +iva_id : int
+  +id_factura_compra : int
+  +iva_fecha : Date
+  +iva_exento : Decimal
+  +iva_5 : Decimal
+  +iva_10 : Decimal
+}
+
+class cuentas_pagar <<entity>> {
+  +id_cuenta_pagar : int
+  +monto_total : int
+  +monto_pendiente : int
+  +estado : String
+  +fecha_emision : Date
+  +fecha_vencimiento : Date
+  +id_sucursal : int
+  +id_usuario : int
+  +id_proveedor : int
+  +id_factura_compra : int
+  +plazo_cuenta : int
+  +nro_cuota : int
+}
+
+class stock_materia_prima <<entity>> {
+  +id_stock : int
+  +id_materia_prima : int
+  +stock_cantidad_minima : int
+  +stock_cantidad_maxima : int
+  +cantidad_existente : int
+  +deposito_id : int
+  +id_usuario : int
+}
+
+class usuarios <<entity>> {
+  +id_usuario : int
+  +username : String
+  +estado_usuario : String
+  +id_sucursal : int
+}
+
+class sucursales <<entity>> {
+  +id_sucursal : int
+  +descripcion_sucursal : String
+  +estado_sucursal : String
+}
+
+class bitacora <<entity>> {
+  +id_bitacora : int
+  +id_usuario : int
+  +entidad_afectada : String
+  +id_registro : int
+  +accion_realizada : String
+  +fecha_accion : DateTime
+}
+
+GUILista --> NotaCompraController
+GUIForm --> NotaCompraController
+
+NotaCompraController ..> conexion
+NotaCompraController ..> nota_compra
+NotaCompraController ..> nota_detalle_compra
+NotaCompraController ..> motivo
+NotaCompraController ..> factura_compra
+NotaCompraController ..> factura_detalle_compra
+NotaCompraController ..> proveedor
+NotaCompraController ..> materia_prima
+NotaCompraController ..> tipo_iva
+NotaCompraController ..> iva_compra
+NotaCompraController ..> cuentas_pagar
+NotaCompraController ..> stock_materia_prima
+NotaCompraController ..> usuarios
+NotaCompraController ..> sucursales
+NotaCompraController ..> bitacora
+
+factura_compra "1" --> "0..*" nota_compra
+proveedor "1" --> "0..*" nota_compra
+usuarios "1" --> "0..*" nota_compra
+sucursales "1" --> "0..*" nota_compra
+motivo "1" --> "0..*" nota_compra
+
+nota_compra "1" *-- "1..*" nota_detalle_compra
+materia_prima "1" --> "0..*" nota_detalle_compra
+materia_prima "1" --> "1" tipo_iva
+
+factura_compra "1" *-- "1..*" factura_detalle_compra
+materia_prima "1" --> "0..*" factura_detalle_compra
+
+factura_compra "1" --> "1" iva_compra
+factura_compra "1" --> "1..*" cuentas_pagar
+materia_prima "1" --> "0..*" stock_materia_prima
+
+@enduml

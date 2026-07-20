@@ -1,15 +1,10 @@
 <?php
 // Footer común para todos los módulos
-// Incluye scripts comunes y cierra el HTML
-
-// Detectar ruta base si no está definida
+if (!defined('PROJECT_ROOT')) {
+    require_once __DIR__ . '/config/bootstrap.php';
+}
 if (!isset($BASE_PATH)) {
-    $currentFile = $_SERVER['PHP_SELF'];
-    if (strpos($currentFile, '/modules/') !== false) {
-        $BASE_PATH = '../../';
-    } else {
-        $BASE_PATH = '';
-    }
+    $BASE_PATH = $GLOBALS['BASE_PATH'] ?? computeBasePath();
 }
 ?>
 

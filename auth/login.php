@@ -1,4 +1,5 @@
 <?php
+// Valida usuario y crea la sesión.
 $file = realpath("../config/database.php");
 
 if (!$file || !file_exists($file)) {

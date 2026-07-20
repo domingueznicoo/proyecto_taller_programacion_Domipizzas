@@ -1,0 +1,133 @@
+@startuml
+title Registrar Control de Calidad – Botón: Guardar / Editar / Anular
+
+autonumber
+
+actor "Encargado de Producción" as ENC
+boundary "GUI Lista Control de Calidad" as GUILista
+boundary "GUI Control de Calidad" as GUIForm
+control "ControlCalidadController" as CTRL
+control "conexion" as CONX
+entity "control_calidad_produccion" as CC
+entity "control_calidad_detalle" as CCDET
+entity "producto_terminado" as PT
+entity "productos_terminados_detalle" as PTDET
+entity "parametros_control" as PARAM
+entity "productos" as PROD
+entity "inspectores" as INSP
+entity "usuarios" as USU
+entity "sucursales" as SUC
+entity "bitacora" as BIT
+
+ENC -> GUILista : Accede a Producción → Control de calidad
+GUILista -> CTRL : listarControlesCalidad()
+CTRL -> CONX : conector()
+CONX --> CTRL : Connection
+CTRL -> CC : consultar_controles_calidad()
+CC --> CTRL : lista_controles
+CTRL -> GUILista : mostrar lista principal
+
+ENC -> GUILista : Clic en "Nueva inspección"
+GUILista -> GUIForm : abrir formulario de control
+
+GUIForm -> CTRL : cargarContexto()
+CTRL -> USU : consultar_usuario(id_usuario)
+USU --> CTRL : datos_usuario
+CTRL -> SUC : consultar_sucursal(id_sucursal)
+SUC --> CTRL : datos_sucursal
+CTRL -> INSP : consultar_inspectores_activos()
+INSP --> CTRL : lista_inspectores
+CTRL -> PT : consultar_lotes_registrados_sin_control()
+PT --> CTRL : lista_lotes
+CTRL -> GUIForm : mostrar contexto, inspectores y lotes
+
+ENC -> GUIForm : Selecciona inspector y lote PT
+GUIForm -> CTRL : cargarProductosLote(terminado_id)
+
+CTRL -> PT : consultar_producto_terminado(terminado_id)
+PT --> CTRL : datos_lote
+
+CTRL -> PTDET : consultar_detalle_producto_terminado(terminado_id)
+PTDET --> CTRL : productos_lote
+
+CTRL -> PROD : consultar_productos(productos_lote)
+PROD --> CTRL : datos_productos
+
+CTRL -> GUIForm : mostrar productos del lote
+
+GUIForm -> CTRL : cargarParametrosControl(productos_lote)
+CTRL -> PARAM : consultar_parametros_activos(producto_id)
+PARAM --> CTRL : parametros_control
+CTRL -> GUIForm : mostrar parámetros por producto
+
+ENC -> GUIForm : Ingresa valor medido y marca cumple/no cumple
+GUIForm -> CTRL : validarControlCalidad(datos_control, detalle)
+CTRL --> GUIForm : control válido / inválido
+GUIForm -> ENC : Mostrar error si existen datos inválidos
+
+GUIForm -> CTRL : calcularVeredicto(detalle)
+CTRL --> GUIForm : Aprobado / No conforme
+
+ENC -> GUIForm : Clic en "Registrar inspección"
+GUIForm -> CTRL : registrarControlCalidad(datos_control, detalle)
+
+CTRL -> CC : insertar_control_calidad(terminado_id, calidad_fecha, calidad_estado, id_inspectores, id_usuario)
+CC --> CTRL : calidad_id
+
+CTRL -> CCDET : insertar_detalle_control(calidad_id, producto_id, calidad_estado, calidad_cantidad, parametro_id, valor_medido, cumple_parametro)
+CCDET --> CTRL : detalle registrado
+
+CTRL -> BIT : registrarBitacora(id_usuario, accion_realizada, fecha_accion)
+BIT --> CTRL : registro exitoso
+
+CTRL -> GUIForm : mostrar confirmación según veredicto
+GUIForm -> GUILista : actualizar lista principal
+
+ENC -> GUILista : Selecciona control y clic en "Editar"
+GUILista -> CTRL : obtenerControlCalidad(calidad_id)
+
+CTRL -> CC : consultar_control_calidad(calidad_id)
+CC --> CTRL : datos_control
+
+CTRL -> CCDET : consultar_detalle_control(calidad_id)
+CCDET --> CTRL : detalle_control
+
+CTRL -> GUIForm : mostrar formulario con datos cargados
+
+ENC -> GUIForm : Modifica fecha o inspector
+GUIForm -> CTRL : editarControlCalidad(calidad_id, calidad_fecha, id_inspectores)
+
+CTRL -> INSP : validar_inspector_activo(id_inspectores)
+INSP --> CTRL : inspector válido / inválido
+
+CTRL -> CC : validarPerdidasVinculadas(calidad_id)
+CC --> CTRL : sin pérdidas / con pérdidas
+
+CTRL -> CC : actualizar_control_calidad(calidad_id, calidad_fecha, id_inspectores)
+CC --> CTRL : actualización exitosa
+
+CTRL -> BIT : registrarBitacora(id_usuario, accion_realizada, fecha_accion)
+BIT --> CTRL : registro exitoso
+
+CTRL -> GUIForm : mostrar confirmación
+GUIForm -> GUILista : actualizar lista principal
+
+ENC -> GUILista : Selecciona control y clic en "Anular"
+GUILista -> ENC : Solicitar confirmación
+
+ENC -> GUILista : Confirma anulación
+GUILista -> CTRL : anularControlCalidad(calidad_id)
+
+CTRL -> CC : validarPerdidasVinculadas(calidad_id)
+CC --> CTRL : sin pérdidas / con pérdidas
+
+CTRL -> CC : actualizar_estado_anulado(calidad_id)
+CC --> CTRL : anulación exitosa
+
+CTRL -> BIT : registrarBitacora(id_usuario, accion_realizada, fecha_accion)
+BIT --> CTRL : registro exitoso
+
+CTRL -> GUILista : mostrar confirmación o error
+GUILista -> ENC : actualizar lista principal
+
+@enduml

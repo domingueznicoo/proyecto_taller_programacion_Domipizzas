@@ -1,0 +1,94 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+left to right direction
+
+title Diagrama de Clases - Caso de Uso "Mantener Parámetros de Control de Calidad"
+
+class "GUI Lista de Parámetros" as GUILista <<boundary>> {
+  +btn_nuevo
+  +btn_buscador
+  +tbl_parametros
+  +btn_editar
+  +btn_eliminar
+  +btn_siguiente
+  +btn_anterior
+  +index() : void
+  +editar() : void
+  +eliminar() : void
+}
+
+class "GUI Parámetros de Control" as GUIForm <<boundary>> {
+  +select_productos
+  +txt_descripcion
+  +select_estado
+  +btn_guardar
+  +btn_cancelar
+  +btn_cerrar
+  +guardar() : void
+}
+
+class ParametroControlController <<control>> {
+  +listarParametros() : void
+  +buscarParametro() : void
+  +cargarProductos() : void
+  +validarCampos() : boolean
+  +validarUnicidad() : boolean
+  +registrarParametro() : void
+  +editarParametro() : void
+  +inactivarParametro() : void
+  +validarReferencias() : boolean
+  +registrarBitacora() : void
+}
+
+class conexion <<control>> {
+  -host : String
+  -puerto : int
+  -nombre_bd : String
+  -contraseña : String
+  +conector() : Connection
+}
+
+class productos <<entity>> {
+  +producto_id : int
+  +producto_precio : int
+  +producto_descri : String
+  +id_unidad : int
+  +id_usuario : int
+  +iva_id : int
+  +producto_estado : String
+  +id_tipo_producto : int
+}
+
+class parametros_control <<entity>> {
+  +parametro_id : int
+  +parametro_descri : String
+  +producto_id : int
+  +id_usuario : int
+  +parametro_estado : String
+}
+
+class bitacora <<entity>> {
+  +id_bitacora : int
+  +id_usuario : int
+  +entidad_afectada : String
+  +id_registro : int
+  +accion_realizada : String
+  +descripcion_cambio : Text
+  +fecha_accion : DateTime
+  +ip_origen : String
+  +navegador_usuario : String
+  +estado_registro : String
+}
+
+GUILista --> ParametroControlController
+GUIForm --> ParametroControlController
+
+ParametroControlController ..> conexion
+ParametroControlController ..> productos
+ParametroControlController ..> parametros_control
+ParametroControlController ..> bitacora
+
+productos "1" --> "0..*" parametros_control
+
+@enduml

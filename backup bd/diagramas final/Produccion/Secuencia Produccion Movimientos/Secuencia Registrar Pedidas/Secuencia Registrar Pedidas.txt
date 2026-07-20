@@ -1,0 +1,182 @@
+@startuml
+title Registrar Pérdidas – Botón: Guardar / Editar / Anular
+
+autonumber
+
+actor "Encargado de Producción" as ENC
+boundary "GUI Lista de Pérdidas" as GUILista
+boundary "GUI Pérdidas" as GUIForm
+control "PerdidaController" as CTRL
+control "conexion" as CONX
+entity "perdidas" as PER
+entity "perdidas_detalle" as PERDET
+entity "tipo_perdida" as TPER
+entity "control_produccion" as CPROD
+entity "control_produccion_detalle" as CPRODDET
+entity "control_calidad_produccion" as CC
+entity "control_calidad_detalle" as CCDET
+entity "producto_terminado" as PT
+entity "productos_terminados_detalle" as PTDET
+entity "orden_produccion" as OP
+entity "orden_detalle_produccion" as OPDET
+entity "productos" as PROD
+entity "stock_producto" as STOCK
+entity "usuarios" as USU
+entity "sucursales" as SUC
+entity "bitacora" as BIT
+
+ENC -> GUILista : Accede a Producción → Pérdidas
+GUILista -> CTRL : listarPerdidas()
+CTRL -> CONX : conector()
+CONX --> CTRL : Connection
+CTRL -> PER : consultar_perdidas()
+PER --> CTRL : lista_perdidas
+CTRL -> GUILista : mostrar lista principal
+
+ENC -> GUILista : Clic en "Nueva pérdida"
+GUILista -> GUIForm : abrir formulario de pérdida
+
+GUIForm -> CTRL : cargarContexto()
+CTRL -> USU : consultar_usuario(id_usuario)
+USU --> CTRL : datos_usuario
+CTRL -> SUC : consultar_sucursal(id_sucursal)
+SUC --> CTRL : datos_sucursal
+CTRL -> TPER : consultar_tipos_perdida()
+TPER --> CTRL : lista_tipos_perdida
+CTRL -> GUIForm : mostrar contexto y tipos de pérdida
+
+ENC -> GUIForm : Selecciona tipo de pérdida
+GUIForm -> CTRL : cargarOrigenes(tipo_perdida_id)
+
+CTRL -> CPROD : consultar_controles_produccion_validos()
+CPROD --> CTRL : controles_produccion / no aplica
+
+CTRL -> CC : consultar_controles_calidad_no_conformes()
+CC --> CTRL : controles_calidad / no aplica
+
+CTRL -> GUIForm : mostrar origen correspondiente
+
+ENC -> GUIForm : Selecciona origen
+GUIForm -> CTRL : cargarProductosDisponibles(origen, id_origen)
+
+CTRL -> CPRODDET : consultar_detalle_control_produccion(control_id)
+CPRODDET --> CTRL : productos_proceso / no aplica
+
+CTRL -> CCDET : consultar_detalle_control_calidad(calidad_id)
+CCDET --> CTRL : productos_no_conformes / no aplica
+
+CTRL -> PT : consultar_producto_terminado(calidad_id)
+PT --> CTRL : datos_lote / no aplica
+
+CTRL -> PTDET : consultar_detalle_producto_terminado(terminado_id)
+PTDET --> CTRL : productos_lote / no aplica
+
+CTRL -> PROD : consultar_productos_disponibles()
+PROD --> CTRL : productos_disponibles
+
+CTRL -> GUIForm : mostrar productos y cantidades máximas
+
+ENC -> GUIForm : Selecciona producto, cantidad y observación
+ENC -> GUIForm : Clic en "Agregar ítem"
+
+GUIForm -> CTRL : validarItem(producto_id, perdida_cantidad, perdida_motivo, origen)
+CTRL --> GUIForm : ítem válido / inválido
+GUIForm -> ENC : Mostrar error si cantidad excede disponible o datos inválidos
+
+GUIForm -> CTRL : agregarItem(producto_id, perdida_cantidad, perdida_motivo)
+CTRL -> GUIForm : agregar ítem al detalle
+
+ENC -> GUIForm : Clic en "Guardar"
+GUIForm -> CTRL : validarDetalle(detalle)
+CTRL --> GUIForm : detalle válido / inválido
+GUIForm -> ENC : Mostrar error si el detalle está vacío
+
+GUIForm -> CTRL : validarOrigenActivo(origen, id_origen)
+CTRL --> GUIForm : origen válido / inválido
+
+GUIForm -> CTRL : registrarPerdida(datos_perdida, detalle)
+
+CTRL -> PER : insertar_perdida(perdida_fecha, perdida_estado, tipo_perdida_id, control_id, calidad_id, id_usuario)
+PER --> CTRL : perdidas_id
+
+CTRL -> PERDET : insertar_detalle_perdida(perdidas_id, producto_id, perdida_cantidad, perdida_motivo)
+PERDET --> CTRL : detalle registrado
+
+CTRL -> STOCK : actualizar_stock_si_merma(producto_id, perdida_cantidad)
+STOCK --> CTRL : stock actualizado / no aplica
+
+CTRL -> OPDET : actualizar_pendiente_si_proceso(orden_id, producto_id, perdida_cantidad)
+OPDET --> CTRL : pendiente actualizado / no aplica
+
+CTRL -> BIT : registrarBitacora(id_usuario, accion_realizada, fecha_accion)
+BIT --> CTRL : registro exitoso
+
+CTRL -> GUIForm : mostrar confirmación
+GUIForm -> GUILista : actualizar lista principal
+
+ENC -> GUILista : Selecciona pérdida Registrada y clic en "Editar"
+GUILista -> CTRL : obtenerPerdida(perdidas_id)
+
+CTRL -> PER : consultar_perdida(perdidas_id)
+PER --> CTRL : datos_perdida
+
+CTRL -> PERDET : consultar_detalle_perdida(perdidas_id)
+PERDET --> CTRL : detalle_perdida
+
+CTRL -> GUIForm : mostrar formulario con datos cargados
+
+ENC -> GUIForm : Ajusta fecha, cantidades u observaciones
+GUIForm -> CTRL : editarPerdida(perdidas_id, datos_perdida, detalle)
+
+CTRL -> STOCK : revertir_efectos_previos_si_merma(perdidas_id)
+STOCK --> CTRL : stock revertido / no aplica
+
+CTRL -> OPDET : revertir_efectos_previos_si_proceso(perdidas_id)
+OPDET --> CTRL : pendiente revertido / no aplica
+
+CTRL -> PER : actualizar_perdida(perdidas_id, datos_perdida)
+PER --> CTRL : actualización exitosa
+
+CTRL -> PERDET : actualizar_detalle_perdida(perdidas_id, detalle)
+PERDET --> CTRL : detalle actualizado
+
+CTRL -> STOCK : aplicar_nuevos_efectos_si_merma(producto_id, perdida_cantidad)
+STOCK --> CTRL : stock actualizado / no aplica
+
+CTRL -> OPDET : aplicar_nuevos_efectos_si_proceso(orden_id, producto_id, perdida_cantidad)
+OPDET --> CTRL : pendiente actualizado / no aplica
+
+CTRL -> BIT : registrarBitacora(id_usuario, accion_realizada, fecha_accion)
+BIT --> CTRL : registro exitoso
+
+CTRL -> GUIForm : mostrar confirmación
+GUIForm -> GUILista : actualizar lista principal
+
+ENC -> GUILista : Selecciona pérdida y clic en "Anular"
+GUILista -> ENC : Solicitar confirmación
+
+ENC -> GUILista : Confirma anulación
+GUILista -> CTRL : anularPerdida(perdidas_id)
+
+CTRL -> PER : consultar_perdida(perdidas_id)
+PER --> CTRL : datos_perdida
+
+CTRL -> PERDET : consultar_detalle_perdida(perdidas_id)
+PERDET --> CTRL : detalle_perdida
+
+CTRL -> STOCK : reponer_stock_si_merma(perdidas_id)
+STOCK --> CTRL : stock repuesto / no aplica
+
+CTRL -> OPDET : revertir_pendiente_si_proceso(perdidas_id)
+OPDET --> CTRL : pendiente revertido / no aplica
+
+CTRL -> PER : actualizar_estado_anulado(perdidas_id)
+PER --> CTRL : anulación exitosa
+
+CTRL -> BIT : registrarBitacora(id_usuario, accion_realizada, fecha_accion)
+BIT --> CTRL : registro exitoso
+
+CTRL -> GUILista : mostrar confirmación o error
+GUILista -> ENC : actualizar lista principal
+
+@enduml

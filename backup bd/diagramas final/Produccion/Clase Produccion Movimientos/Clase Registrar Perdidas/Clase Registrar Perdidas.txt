@@ -1,0 +1,228 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+left to right direction
+
+title Diagrama de Clases - Caso de Uso "Registrar Pérdidas"
+
+class "GUI Lista de Pérdidas" as GUILista <<boundary>> {
+  +btn_nuevo
+  +btn_buscador
+  +tbl_perdidas
+  +btn_detalle
+  +btn_editar
+  +btn_anular
+  +btn_anterior
+  +btn_siguiente
+  +index() : void
+  +editar() : void
+  +anular() : void
+}
+
+class "GUI Pérdidas" as GUIForm <<boundary>> {
+  +txt_fecha
+  +select_tipo_perdida
+  +select_control_produccion
+  +select_control_calidad
+  +select_producto
+  +txt_cantidad
+  +txt_observacion
+  +tbl_detalle
+  +btn_agregar
+  +btn_quitar
+  +btn_guardar
+  +btn_cancelar
+  +btn_cerrar
+  +guardar() : void
+}
+
+class PerdidaController <<control>> {
+  +listarPerdidas() : void
+  +cargarContexto() : void
+  +cargarTiposPerdida() : void
+  +cargarOrigenes() : void
+  +cargarProductosDisponibles() : void
+  +validarItem() : boolean
+  +agregarItem() : void
+  +quitarItem() : void
+  +validarDetalle() : boolean
+  +validarOrigenActivo() : boolean
+  +registrarPerdida() : void
+  +editarPerdida() : void
+  +anularPerdida() : void
+  +actualizarStockProducto() : void
+  +actualizarPendienteOrden() : void
+  +registrarBitacora() : void
+}
+
+class conexion <<control>> {
+  -host : String
+  -puerto : int
+  -nombre_bd : String
+  -contraseña : String
+  +conector() : Connection
+}
+
+class perdidas <<entity>> {
+  +perdidas_id : int
+  +perdida_estado : String
+  +perdida_fecha : Date
+  +tipo_perdida_id : int
+  +calidad_id : int
+  +control_id : int
+  +id_usuario : int
+}
+
+class perdidas_detalle <<entity>> {
+  +perdidas_id : int
+  +producto_id : int
+  +perdida_cantidad : int
+  +perdida_motivo : String
+}
+
+class tipo_perdida <<entity>> {
+  +tipo_perdida_id : int
+  +tipo_perdida_descri : String
+  +id_usuario : int
+}
+
+class control_produccion <<entity>> {
+  +control_id : int
+  +orden_id : int
+  +control_fecha : Date
+  +control_estado : String
+}
+
+class control_produccion_detalle <<entity>> {
+  +control_id : int
+  +producto_id : int
+  +control_cantidad : int
+  +control_descri : String
+}
+
+class control_calidad_produccion <<entity>> {
+  +calidad_id : int
+  +terminado_id : int
+  +calidad_fecha : Date
+  +calidad_estado : String
+}
+
+class control_calidad_detalle <<entity>> {
+  +calidad_id : int
+  +producto_id : int
+  +calidad_estado : String
+  +calidad_cantidad : int
+  +parametro_id : int
+  +valor_medido : String
+  +cumple_parametro : boolean
+}
+
+class producto_terminado <<entity>> {
+  +terminado_id : int
+  +orden_id : int
+  +terminado_fecha : Date
+  +id_usuario : int
+}
+
+class productos_terminados_detalle <<entity>> {
+  +terminado_id : int
+  +producto_id : int
+  +terminado_cantidad : int
+  +deposito_id : int
+}
+
+class orden_produccion <<entity>> {
+  +orden_id : int
+  +orden_prod_fecha : Date
+  +orden_prod_estado : String
+}
+
+class orden_detalle_produccion <<entity>> {
+  +orden_id : int
+  +producto_id : int
+  +orden_prod_cantidad : int
+  +cantidad_pendiente : int
+}
+
+class productos <<entity>> {
+  +producto_id : int
+  +producto_descri : String
+  +producto_estado : String
+}
+
+class stock_producto <<entity>> {
+  +id_stock_productos : int
+  +producto_id : int
+  +deposito_id : int
+  +stock_prod_ven : Date
+  +stock_prod_existente : int
+  +id_usuario : int
+}
+
+class usuarios <<entity>> {
+  +id_usuario : int
+  +username : String
+  +estado_usuario : String
+  +id_sucursal : int
+}
+
+class sucursales <<entity>> {
+  +id_sucursal : int
+  +descripcion_sucursal : String
+  +estado_sucursal : String
+}
+
+class bitacora <<entity>> {
+  +id_bitacora : int
+  +id_usuario : int
+  +entidad_afectada : String
+  +id_registro : int
+  +accion_realizada : String
+  +fecha_accion : DateTime
+}
+
+GUILista --> PerdidaController
+GUIForm --> PerdidaController
+
+PerdidaController ..> conexion
+PerdidaController ..> perdidas
+PerdidaController ..> perdidas_detalle
+PerdidaController ..> tipo_perdida
+PerdidaController ..> control_produccion
+PerdidaController ..> control_produccion_detalle
+PerdidaController ..> control_calidad_produccion
+PerdidaController ..> control_calidad_detalle
+PerdidaController ..> producto_terminado
+PerdidaController ..> productos_terminados_detalle
+PerdidaController ..> orden_produccion
+PerdidaController ..> orden_detalle_produccion
+PerdidaController ..> productos
+PerdidaController ..> stock_producto
+PerdidaController ..> usuarios
+PerdidaController ..> sucursales
+PerdidaController ..> bitacora
+
+tipo_perdida "1" --> "0..*" perdidas
+usuarios "1" --> "0..*" perdidas
+
+perdidas "1" *-- "1..*" perdidas_detalle
+productos "1" --> "0..*" perdidas_detalle
+
+control_produccion "1" --> "0..*" perdidas
+control_calidad_produccion "1" --> "0..*" perdidas
+
+control_produccion "1" *-- "1..*" control_produccion_detalle
+productos "1" --> "0..*" control_produccion_detalle
+
+control_calidad_produccion "1" *-- "1..*" control_calidad_detalle
+productos "1" --> "0..*" control_calidad_detalle
+
+producto_terminado "1" *-- "1..*" productos_terminados_detalle
+productos "1" --> "0..*" productos_terminados_detalle
+
+orden_produccion "1" *-- "1..*" orden_detalle_produccion
+productos "1" --> "0..*" orden_detalle_produccion
+
+productos "1" --> "0..*" stock_producto
+
+@enduml

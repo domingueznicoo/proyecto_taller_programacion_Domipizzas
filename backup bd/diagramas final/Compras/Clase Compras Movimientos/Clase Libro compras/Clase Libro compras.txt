@@ -1,0 +1,153 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+left to right direction
+
+title Diagrama de Clases - Caso de Uso "Consultar y Generar Libro de Compras"
+
+class "GUI Libro de Compras" as GUIForm <<boundary>> {
+  +txt_periodo_desde
+  +txt_periodo_hasta
+  +select_sucursal
+  +select_proveedor
+  +select_tipo_documento
+  +tbl_detalle
+  +tbl_resumen
+  +btn_generar
+  +btn_imprimir
+  +btn_ver_documento
+  +btn_cerrar
+  +generar() : void
+}
+
+class LibroCompraController <<control>> {
+  +validarPeriodo() : boolean
+  +consultarDocumentos() : void
+  +consolidarFacturas() : void
+  +consolidarNotas() : void
+  +calcularTotalesIva() : void
+  +generarPDF() : void
+  +verDocumento() : void
+  +registrarBitacora() : void
+}
+
+class conexion <<control>> {
+  -host : String
+  -puerto : int
+  -nombre_bd : String
+  -contraseña : String
+  +conector() : Connection
+}
+
+class factura_compra <<entity>> {
+  +id_factura_compra : int
+  +numero_factura : String
+  +timbrado : String
+  +fact_fecha_compra : DateTime
+  +fac_fecha_vencimiento : Date
+  +fac_total : int
+  +fac_estado : String
+  +fac_plazo : String
+  +id_usuario : int
+  +id_sucursal : int
+  +id_orden_compra : int
+  +tipo_operacion : String
+}
+
+class factura_detalle_compra <<entity>> {
+  +id_materia_prima : int
+  +id_factura_compra : int
+  +fac_cantidad : int
+  +fac_iva : Decimal
+  +fac_precio : int
+}
+
+class nota_compra <<entity>> {
+  +id_nota_compra : int
+  +nota_compra_tipo : String
+  +nota_compra_fecha : Date
+  +nota_nro : String
+  +nota_compra_timbrado : String
+  +nota_compra_estado : String
+  +nota_total : int
+  +id_usuario : int
+  +id_sucursal : int
+  +id_proveedor : int
+  +id_factura_compra : int
+}
+
+class nota_detalle_compra <<entity>> {
+  +id_materia_prima : int
+  +id_nota_compra : int
+  +nota_compra_cantidad : int
+  +tipo_iva : Decimal
+  +nota_precio : int
+}
+
+class iva_compra <<entity>> {
+  +iva_id : int
+  +id_factura_compra : int
+  +iva_fecha : Date
+  +iva_exento : Decimal
+  +iva_5 : Decimal
+  +iva_10 : Decimal
+}
+
+class tipo_iva <<entity>> {
+  +iva_id : int
+  +iva_descri : String
+  +id_usuario : int
+}
+
+class proveedor <<entity>> {
+  +id_proveedor : int
+  +razon_social : String
+  +ruc_proveedor : String
+  +estado_proveedor : String
+}
+
+class usuarios <<entity>> {
+  +id_usuario : int
+  +username : String
+  +estado_usuario : String
+  +id_sucursal : int
+}
+
+class sucursales <<entity>> {
+  +id_sucursal : int
+  +descripcion_sucursal : String
+  +estado_sucursal : String
+}
+
+class bitacora <<entity>> {
+  +id_bitacora : int
+  +id_usuario : int
+  +entidad_afectada : String
+  +id_registro : int
+  +accion_realizada : String
+  +descripcion_cambio : Text
+  +fecha_accion : DateTime
+}
+
+GUIForm --> LibroCompraController
+
+LibroCompraController ..> conexion
+LibroCompraController ..> factura_compra
+LibroCompraController ..> factura_detalle_compra
+LibroCompraController ..> nota_compra
+LibroCompraController ..> nota_detalle_compra
+LibroCompraController ..> iva_compra
+LibroCompraController ..> tipo_iva
+LibroCompraController ..> proveedor
+LibroCompraController ..> usuarios
+LibroCompraController ..> sucursales
+LibroCompraController ..> bitacora
+
+proveedor "1" --> "0..*" factura_compra
+proveedor "1" --> "0..*" nota_compra
+factura_compra "1" *-- "1..*" factura_detalle_compra
+nota_compra "1" *-- "1..*" nota_detalle_compra
+factura_compra "1" --> "1" iva_compra
+
+
+@enduml

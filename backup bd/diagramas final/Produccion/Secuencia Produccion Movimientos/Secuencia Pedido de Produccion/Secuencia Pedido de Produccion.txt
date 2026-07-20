@@ -1,0 +1,119 @@
+@startuml
+title Registrar Pedido de Producción – Botón: Guardar / Editar / Anular
+
+autonumber
+
+actor "Encargado de Producción" as ENC
+boundary "GUI Lista de Pedidos de Producción" as GUILista
+boundary "GUI Pedido de Producción" as GUIForm
+control "PedidoProduccionController" as CTRL
+control "conexion" as CONX
+entity "pedido_produccion" as PED
+entity "pedido_detalle_produccion" as DET
+entity "productos" as PROD
+entity "tipo_pedido" as TP
+entity "usuarios" as USU
+entity "sucursales" as SUC
+entity "bitacora" as BIT
+
+ENC -> GUILista : Accede a Producción → Pedidos
+GUILista -> CTRL : listarPedidos()
+CTRL -> CONX : conector()
+CONX --> CTRL : Connection
+CTRL -> PED : consultar_pedidos_produccion()
+PED --> CTRL : lista_pedidos
+CTRL -> GUILista : mostrar lista principal
+
+ENC -> GUILista : Clic en "Nuevo"
+GUILista -> GUIForm : abrir formulario de pedido
+
+GUIForm -> CTRL : cargarContexto()
+CTRL -> USU : consultar_usuario(id_usuario)
+USU --> CTRL : datos_usuario
+CTRL -> SUC : consultar_sucursal(id_sucursal)
+SUC --> CTRL : datos_sucursal
+CTRL -> TP : consultar_tipos_pedido_activos()
+TP --> CTRL : lista_tipos_pedido
+CTRL -> PROD : consultar_productos_activos()
+PROD --> CTRL : lista_productos
+CTRL -> GUIForm : mostrar contexto, tipos de pedido y productos
+
+ENC -> GUIForm : Selecciona tipo de pedido, producto y cantidad
+ENC -> GUIForm : Clic en "Agregar ítem"
+
+GUIForm -> CTRL : validarItem(id_tipo_pedido, producto_id, cantidad)
+CTRL --> GUIForm : ítem válido / inválido
+GUIForm -> ENC : Mostrar error si existen datos inválidos
+
+GUIForm -> CTRL : agregarItem(producto_id, cantidad)
+CTRL -> GUIForm : agregar ítem al detalle
+
+ENC -> GUIForm : Clic en "Guardar"
+GUIForm -> CTRL : validarDetalle(detalle)
+CTRL --> GUIForm : detalle válido / inválido
+GUIForm -> ENC : Mostrar error si el detalle está vacío
+
+GUIForm -> CTRL : registrarPedido(datos_pedido, detalle)
+
+CTRL -> PED : insertar_pedido_produccion(pedido_prod_fecha_emision, pedido_prod_estado, id_tipo_pedido, id_usuario, id_sucursal, pedido_prod_observaciones)
+PED --> CTRL : id_pedido_produccion
+
+CTRL -> DET : insertar_detalle_pedido(id_pedido_produccion, producto_id, cantidad_pedido)
+DET --> CTRL : detalle registrado
+
+CTRL -> BIT : registrarBitacora(id_usuario, accion_realizada, fecha_accion)
+BIT --> CTRL : registro exitoso
+
+CTRL -> GUIForm : mostrar confirmación
+GUIForm -> GUILista : actualizar lista principal
+
+ENC -> GUILista : Selecciona pedido Pendiente y clic en "Editar"
+GUILista -> CTRL : obtenerPedido(id_pedido_produccion)
+
+CTRL -> PED : consultar_pedido_produccion(id_pedido_produccion)
+PED --> CTRL : datos_pedido
+
+CTRL -> DET : consultar_detalle_pedido(id_pedido_produccion)
+DET --> CTRL : detalle_pedido
+
+CTRL -> GUIForm : mostrar formulario con datos cargados
+
+ENC -> GUIForm : Modifica tipo, ítems o cantidades
+GUIForm -> CTRL : validarDetalle(detalle)
+CTRL --> GUIForm : detalle válido / inválido
+GUIForm -> ENC : Mostrar error si existen datos inválidos
+
+ENC -> GUIForm : Clic en "Guardar"
+GUIForm -> CTRL : editarPedido(id_pedido_produccion, datos_pedido, detalle)
+
+CTRL -> PED : actualizar_pedido_produccion(id_pedido_produccion, datos_pedido)
+PED --> CTRL : actualización exitosa
+
+CTRL -> DET : actualizar_detalle_pedido(id_pedido_produccion, detalle)
+DET --> CTRL : detalle actualizado
+
+CTRL -> BIT : registrarBitacora(id_usuario, accion_realizada, fecha_accion)
+BIT --> CTRL : registro exitoso
+
+CTRL -> GUIForm : mostrar confirmación
+GUIForm -> GUILista : actualizar lista principal
+
+ENC -> GUILista : Selecciona pedido y clic en "Anular"
+GUILista -> ENC : Solicitar confirmación
+
+ENC -> GUILista : Confirma anulación
+GUILista -> CTRL : anularPedido(id_pedido_produccion)
+
+CTRL -> PED : validarVinculoOrdenProduccion(id_pedido_produccion)
+PED --> CTRL : sin vínculo / con vínculo
+
+CTRL -> PED : actualizar_estado_anulado(id_pedido_produccion)
+PED --> CTRL : anulación exitosa
+
+CTRL -> BIT : registrarBitacora(id_usuario, accion_realizada, fecha_accion)
+BIT --> CTRL : registro exitoso
+
+CTRL -> GUILista : mostrar confirmación o error
+GUILista -> ENC : actualizar lista principal
+
+@enduml

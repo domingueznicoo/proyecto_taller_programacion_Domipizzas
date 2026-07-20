@@ -1,0 +1,156 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+left to right direction
+
+title Diagrama de Clases - Caso de Uso "Registrar Reposición de Materia Prima"
+
+class "GUI Lista Reposición de MP" as GUILista <<boundary>> {
+  +btn_nuevo
+  +btn_buscador
+  +tbl_reposiciones
+  +btn_detalle
+  +btn_editar
+  +btn_anular
+  +btn_anterior
+  +btn_siguiente
+  +index() : void
+  +editar() : void
+  +anular() : void
+}
+
+class "GUI Reposición de MP" as GUIForm <<boundary>> {
+  +txt_fecha
+  +select_pedido_materia
+  +txt_deposito
+  +tbl_detalle_pedido
+  +txt_cantidad_reponer
+  +btn_guardar
+  +btn_cancelar
+  +btn_cerrar
+  +guardar() : void
+}
+
+class ReposicionMateriaController <<control>> {
+  +listarReposiciones() : void
+  +cargarContexto() : void
+  +cargarPedidosPendientes() : void
+  +cargarDetallePedido() : void
+  +validarItem() : boolean
+  +validarDetalle() : boolean
+  +registrarReposicion() : void
+  +editarReposicion() : void
+  +anularReposicion() : void
+  +actualizarStockMateria() : void
+  +actualizarPedidoMateria() : void
+  +validarStockReversion() : boolean
+  +registrarBitacora() : void
+}
+
+class conexion <<control>> {
+  -host : String
+  -puerto : int
+  -nombre_bd : String
+  -contraseña : String
+  +conector() : Connection
+}
+
+class reposicion_materia <<entity>> {
+  +id_reposicion_materia : int
+  +reposicion_fecha : Date
+  +reposicion_estado : String
+  +id_pedido_materia : int
+  +deposito_id : int
+  +id_usuario : int
+}
+
+class reposicion_materia_detalle <<entity>> {
+  +id_reposicion_materia : int
+  +id_materia_prima : int
+  +cantidad_repuesta : int
+}
+
+class pedido_materia_produccion <<entity>> {
+  +id_pedido_materia : int
+  +pedido_materia_fecha : Date
+  +pedido_materia_estado : String
+  +deposito_id : int
+  +id_usuario : int
+}
+
+class pedido_materia_detalle_produccion <<entity>> {
+  +id_pedido_materia : int
+  +id_materia_prima : int
+  +cantidad_solicitada : int
+  +cantidad_repuesta : int
+}
+
+class materia_prima <<entity>> {
+  +id_materia_prima : int
+  +materia_prima_descripcion : String
+  +materia_prima_estado : String
+  +id_unidad : int
+  +id_usuario : int
+  +iva_id : int
+}
+
+class stock_materia_prima <<entity>> {
+  +id_stock : int
+  +id_materia_prima : int
+  +stock_cantidad_minima : int
+  +stock_cantidad_maxima : int
+  +cantidad_existente : int
+  +deposito_id : int
+  +id_usuario : int
+}
+
+class deposito <<entity>> {
+  +deposito_id : int
+  +deposito_descri : String
+  +id_usuario : int
+}
+
+class usuarios <<entity>> {
+  +id_usuario : int
+  +username : String
+  +estado_usuario : String
+  +id_sucursal : int
+}
+
+class bitacora <<entity>> {
+  +id_bitacora : int
+  +id_usuario : int
+  +entidad_afectada : String
+  +id_registro : int
+  +accion_realizada : String
+  +fecha_accion : DateTime
+}
+
+GUILista --> ReposicionMateriaController
+GUIForm --> ReposicionMateriaController
+
+ReposicionMateriaController ..> conexion
+ReposicionMateriaController ..> reposicion_materia
+ReposicionMateriaController ..> reposicion_materia_detalle
+ReposicionMateriaController ..> pedido_materia_produccion
+ReposicionMateriaController ..> pedido_materia_detalle_produccion
+ReposicionMateriaController ..> materia_prima
+ReposicionMateriaController ..> stock_materia_prima
+ReposicionMateriaController ..> deposito
+ReposicionMateriaController ..> usuarios
+ReposicionMateriaController ..> bitacora
+
+pedido_materia_produccion "1" --> "0..*" reposicion_materia
+deposito "1" --> "0..*" reposicion_materia
+usuarios "1" --> "0..*" reposicion_materia
+
+reposicion_materia "1" *-- "1..*" reposicion_materia_detalle
+materia_prima "1" --> "0..*" reposicion_materia_detalle
+
+pedido_materia_produccion "1" *-- "1..*" pedido_materia_detalle_produccion
+materia_prima "1" --> "0..*" pedido_materia_detalle_produccion
+
+materia_prima "1" --> "0..*" stock_materia_prima
+deposito "1" --> "0..*" stock_materia_prima
+
+@enduml

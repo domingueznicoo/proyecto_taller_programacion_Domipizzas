@@ -1,0 +1,102 @@
+@startuml
+title Mantener Materia Prima – Botón: Guardar / Editar / Eliminar
+
+autonumber
+
+actor "Administrador del sistema" as ADM
+boundary "GUI Lista de Materias Primas" as GUILista
+boundary "GUI Materia Prima" as GUIForm
+control "MateriaPrimaController" as CTRL
+control "conexion" as CONX
+entity "materia_prima" as MP
+entity "unidad_medida" as UM
+entity "tipo_iva" as TIVA
+entity "deposito" as DEP
+entity "stock_materia_prima" as STOCK
+entity "bitacora" as BIT
+
+ADM -> GUILista : Accede a Compras → Referenciales → Materia Prima
+GUILista -> CTRL : listarMateriasPrimas()
+CTRL -> CONX : conector()
+CONX --> CTRL : Connection
+CTRL -> MP : consultar_materias_primas()
+MP --> CTRL : lista_materias_primas
+CTRL -> GUILista : mostrar lista principal
+
+ADM -> GUILista : Clic en "Nuevo"
+GUILista -> GUIForm : abrir formulario de registro
+
+GUIForm -> CTRL : cargarReferenciales()
+CTRL -> UM : consultar_unidades_medida()
+UM --> CTRL : lista_unidades_medida
+CTRL -> TIVA : consultar_tipos_iva()
+TIVA --> CTRL : lista_tipos_iva
+CTRL -> DEP : consultar_depositos()
+DEP --> CTRL : lista_depositos
+CTRL -> GUIForm : mostrar referenciales
+
+ADM -> GUIForm : Ingresa descripción, unidad, tipo IVA, depósito y stock
+GUIForm -> CTRL : validarCampos(datos_materia_prima)
+CTRL --> GUIForm : campos válidos / inválidos
+GUIForm -> ADM : Mostrar error si existen campos inválidos
+
+ADM -> GUIForm : Clic en "Guardar"
+GUIForm -> CTRL : registrarMateriaPrima(datos_materia_prima)
+
+CTRL -> MP : insertar_materia_prima(descripcion, id_unidad, iva_id)
+MP --> CTRL : id_materia_prima
+
+CTRL -> STOCK : insertar_stock_materia_prima(id_materia_prima, deposito_id, cantidad_minima, cantidad_maxima)
+STOCK --> CTRL : registro exitoso
+
+CTRL -> BIT : registrarBitacora(id_usuario, accion_realizada, fecha_accion)
+BIT --> CTRL : registro exitoso
+
+CTRL -> GUIForm : mostrar confirmación
+GUIForm -> GUILista : actualizar lista principal
+
+ADM -> GUILista : Selecciona materia prima y clic en "Editar"
+GUILista -> CTRL : obtenerMateriaPrima(id_materia_prima)
+CTRL -> MP : consultar_materia_prima(id_materia_prima)
+MP --> CTRL : datos_materia_prima
+CTRL -> STOCK : consultar_stock_materia_prima(id_materia_prima)
+STOCK --> CTRL : datos_stock
+CTRL -> GUIForm : mostrar formulario con datos cargados
+
+ADM -> GUIForm : Modifica datos y clic en "Guardar"
+GUIForm -> CTRL : editarMateriaPrima(id_materia_prima, datos_materia_prima)
+
+CTRL -> MP : actualizar_materia_prima(id_materia_prima, descripcion, id_unidad, iva_id)
+MP --> CTRL : actualización exitosa
+
+CTRL -> STOCK : actualizar_stock_materia_prima(id_materia_prima, deposito_id, cantidad_minima, cantidad_maxima)
+STOCK --> CTRL : actualización exitosa
+
+CTRL -> BIT : registrarBitacora(id_usuario, accion_realizada, fecha_accion)
+BIT --> CTRL : registro exitoso
+
+CTRL -> GUIForm : mostrar confirmación
+GUIForm -> GUILista : actualizar lista principal
+
+ADM -> GUILista : Selecciona materia prima y clic en "Eliminar"
+GUILista -> ADM : Solicitar confirmación
+
+ADM -> GUILista : Confirma eliminación
+GUILista -> CTRL : inactivarMateriaPrima(id_materia_prima)
+
+CTRL -> STOCK : verificar_stock(id_materia_prima)
+STOCK --> CTRL : cantidad_existente
+
+CTRL -> MP : verificar_movimientos(id_materia_prima)
+MP --> CTRL : sin movimientos / con movimientos
+
+CTRL -> MP : inactivar_materia_prima(id_materia_prima)
+MP --> CTRL : inactivación exitosa
+
+CTRL -> BIT : registrarBitacora(id_usuario, accion_realizada, fecha_accion)
+BIT --> CTRL : registro exitoso
+
+CTRL -> GUILista : mostrar confirmación o error
+GUILista -> ADM : actualizar lista principal
+
+@enduml

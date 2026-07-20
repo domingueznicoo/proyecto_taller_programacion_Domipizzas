@@ -1,4 +1,5 @@
 <?php
+// Mantiene activa la sesión del usuario.
 session_start();
 
 $response = array();

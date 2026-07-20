@@ -1,0 +1,119 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+left to right direction
+
+title Diagrama de Clases - Caso de Uso "Mantener Materia Prima"
+
+class "GUI Lista de Materias Primas" as GUILista <<boundary>> {
+  +btn_nuevo
+  +btn_buscador
+  +tbl_materias_primas
+  +btn_editar
+  +btn_eliminar
+  +btn_siguiente
+  +btn_anterior
+  +index() : void
+  +editar() : void
+  +eliminar() : void
+}
+
+class "GUI Materia Prima" as GUIForm <<boundary>> {
+  +txt_descripcion
+  +select_unidad_medida
+  +select_tipo_iva
+  +select_deposito
+  +txt_cantidad_minima
+  +txt_cantidad_maxima
+  +btn_guardar
+  +btn_cerrar
+  +guardar() : void
+}
+
+class MateriaPrimaController <<control>> {
+  +listarMateriasPrimas() : void
+  +buscarMateriaPrima() : void
+  +validarCampos() : boolean
+  +registrarMateriaPrima() : void
+  +editarMateriaPrima() : void
+  +inactivarMateriaPrima() : void
+  +validarStockCero() : boolean
+  +validarMovimientos() : boolean
+  +registrarBitacora() : void
+}
+
+class conexion <<control>> {
+  -host : String
+  -puerto : int
+  -nombre_bd : String
+  -contraseña : String
+  +conector() : Connection
+}
+
+class materia_prima <<entity>> {
+  +id_materia_prima : int
+  +materia_prima_descripcion : String
+  +materia_prima_estado : String
+  +id_unidad : int
+  +id_usuario : int
+  +iva_id : int
+}
+
+class unidad_medida <<entity>> {
+  +id_unidad : int
+  +unidad_descri : String
+  +id_usuario : int
+}
+
+class tipo_iva <<entity>> {
+  +iva_id : int
+  +iva_descri : String
+  +id_usuario : int
+}
+
+class deposito <<entity>> {
+  +deposito_id : int
+  +deposito_descri : String
+  +id_usuario : int
+}
+
+class stock_materia_prima <<entity>> {
+  +id_stock : int
+  +id_materia_prima : int
+  +stock_cantidad_minima : int
+  +stock_cantidad_maxima : int
+  +cantidad_existente : int
+  +deposito_id : int
+  +id_usuario : int
+}
+
+class bitacora <<entity>> {
+  +id_bitacora : int
+  +id_usuario : int
+  +entidad_afectada : String
+  +id_registro : int
+  +accion_realizada : String
+  +descripcion_cambio : Text
+  +fecha_accion : DateTime
+  +ip_origen : String
+  +navegador_usuario : String
+  +estado_registro : String
+}
+
+GUILista --> MateriaPrimaController
+GUIForm --> MateriaPrimaController
+
+MateriaPrimaController ..> conexion
+MateriaPrimaController ..> materia_prima
+MateriaPrimaController ..> unidad_medida
+MateriaPrimaController ..> tipo_iva
+MateriaPrimaController ..> deposito
+MateriaPrimaController ..> stock_materia_prima
+MateriaPrimaController ..> bitacora
+
+materia_prima "1" --> "1" unidad_medida
+materia_prima "1" --> "1" tipo_iva
+materia_prima "1" --> "0..*" stock_materia_prima
+stock_materia_prima "0..*" --> "1" deposito
+
+@enduml

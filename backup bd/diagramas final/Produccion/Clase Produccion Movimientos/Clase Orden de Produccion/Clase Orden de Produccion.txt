@@ -1,0 +1,143 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+left to right direction
+
+title Diagrama de Clases - Caso de Uso "Registrar Orden de Producción"
+
+class "GUI Lista de Órdenes de Producción" as GUILista <<boundary>> {
+  +btn_nuevo
+  +btn_detalle
+  +btn_editar
+  +btn_anular
+  +btn_anterior
+  +btn_siguiente
+  +btn_buscador
+  +tbl_ordenes
+  +index() : void
+  +editar() : void
+  +anular() : void
+}
+
+class "GUI Orden de Producción" as GUIForm <<boundary>> {
+  +txt_fecha
+  +date_fecha_entrega
+  +select_pedido_produccion
+  +tbl_detalle
+  +btn_guardar
+  +btn_cancelar
+  +btn_cerrar
+  +guardar() : void
+}
+
+class OrdenProduccionController <<control>> {
+  +listarOrdenes() : void
+  +cargarContexto() : void
+  +cargarPedidosPendientes() : void
+  +precargarDetallePedido() : void
+  +validarFechaEntrega() : boolean
+  +validarDetalle() : boolean
+  +validarPedidoSinOrdenActiva() : boolean
+  +registrarOrden() : void
+  +editarOrden() : void
+  +anularOrden() : void
+  +validarControlProduccion() : boolean
+  +registrarBitacora() : void
+}
+
+class conexion <<control>> {
+  -host : String
+  -puerto : int
+  -nombre_bd : String
+  -contraseña : String
+  +conector() : Connection
+}
+
+class orden_produccion <<entity>> {
+  +orden_id : int
+  +orden_prod_fecha : Date
+  +orden_prod_fecha_entrega : Date
+  +orden_prod_estado : String
+  +id_pedido_produccion : int
+  +id_usuario : int
+}
+
+class orden_detalle_produccion <<entity>> {
+  +orden_id : int
+  +producto_id : int
+  +orden_prod_cantidad : int
+  +cantidad_pendiente : int
+}
+
+class pedido_produccion <<entity>> {
+  +id_pedido_produccion : int
+  +pedido_prod_fecha_emision : Date
+  +pedido_prod_estado : String
+  +id_tipo_pedido : int
+  +id_usuario : int
+  +id_sucursal : int
+  +pedido_prod_observaciones : Text
+}
+
+class pedido_detalle_produccion <<entity>> {
+  +id_pedido_produccion : int
+  +producto_id : int
+  +cantidad_pedido : int
+}
+
+class productos <<entity>> {
+  +producto_id : int
+  +producto_precio : int
+  +producto_descri : String
+  +id_unidad : int
+  +id_usuario : int
+  +iva_id : int
+  +producto_estado : String
+  +id_tipo_producto : int
+}
+
+class usuarios <<entity>> {
+  +id_usuario : int
+  +username : String
+  +estado_usuario : String
+  +id_sucursal : int
+}
+
+class sucursales <<entity>> {
+  +id_sucursal : int
+  +descripcion_sucursal : String
+  +estado_sucursal : String
+}
+
+class bitacora <<entity>> {
+  +id_bitacora : int
+  +id_usuario : int
+  +entidad_afectada : String
+  +id_registro : int
+  +accion_realizada : String
+  +fecha_accion : DateTime
+}
+
+GUILista --> OrdenProduccionController
+GUIForm --> OrdenProduccionController
+
+OrdenProduccionController ..> conexion
+OrdenProduccionController ..> orden_produccion
+OrdenProduccionController ..> orden_detalle_produccion
+OrdenProduccionController ..> pedido_produccion
+OrdenProduccionController ..> pedido_detalle_produccion
+OrdenProduccionController ..> productos
+OrdenProduccionController ..> usuarios
+OrdenProduccionController ..> sucursales
+OrdenProduccionController ..> bitacora
+
+usuarios "1" --> "0..*" orden_produccion
+pedido_produccion "1" --> "0..1" orden_produccion
+
+orden_produccion "1" *-- "1..*" orden_detalle_produccion
+productos "1" --> "0..*" orden_detalle_produccion
+
+pedido_produccion "1" *-- "1..*" pedido_detalle_produccion
+productos "1" --> "0..*" pedido_detalle_produccion
+
+@enduml

@@ -1,0 +1,113 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+left to right direction
+
+title Diagrama de Clases - Caso de Uso "Elaborar Informes Varios"
+
+class "GUI Reportes Generales" as GUIForm <<boundary>> {
+  +select_movimiento
+  +select_estado
+  +date_desde
+  +date_hasta
+  +btn_generar
+  +btn_limpiar
+  +generar() : void
+  +limpiar() : void
+}
+
+class InformeController <<control>> {
+  +validarSesion() : boolean
+  +validarPermisos() : boolean
+  +cargarMovimientos() : void
+  +cargarEstados() : void
+  +validarFiltros() : boolean
+  +consultarDatos() : void
+  +generarPDF() : void
+  +registrarBitacora() : void
+}
+
+class conexion <<control>> {
+  -host : String
+  -puerto : int
+  -nombre_bd : String
+  -contraseña : String
+  +conector() : Connection
+}
+
+class usuarios <<entity>> {
+  +id_usuario : int
+  +username : String
+  +estado_usuario : String
+  +id_sucursal : int
+  +modulo_id : int
+  +id_cargo : int
+}
+
+class sucursales <<entity>> {
+  +id_sucursal : int
+  +descripcion_sucursal : String
+  +estado_sucursal : String
+}
+
+class "ConsultaCompras" <<report>> {
+  +pedidos_compra
+  +presupuesto_compra
+  +orden_de_compra
+  +factura_compra
+  +nota_compra
+  +nota_remision_compra
+  +ajustes
+  +cuentas_pagar
+  +iva_compra
+}
+
+class "ConsultaProduccion" <<report>> {
+  +pedido_produccion
+  +orden_produccion
+  +pedido_materia_produccion
+  +reposicion_materia
+  +control_produccion
+  +producto_terminado
+  +control_calidad_produccion
+  +perdidas
+}
+
+class "ConsultaReferenciales" <<report>> {
+  +proveedor
+  +productos
+  +materia_prima
+  +deposito
+}
+
+class bitacora <<entity>> {
+  +id_bitacora : int
+  +id_usuario : int
+  +entidad_afectada : String
+  +id_registro : int
+  +accion_realizada : String
+  +descripcion_cambio : Text
+  +fecha_accion : DateTime
+}
+
+GUIForm --> InformeController
+
+InformeController ..> conexion
+InformeController ..> usuarios
+InformeController ..> sucursales
+InformeController ..> ConsultaCompras
+InformeController ..> ConsultaProduccion
+InformeController ..> ConsultaReferenciales
+InformeController ..> bitacora
+
+usuarios "1" --> "0..*" bitacora
+sucursales "1" --> "0..*" usuarios
+
+note bottom of ConsultaCompras
+  Clase de consulta (solo lectura).
+  No es tabla persistente.
+  Lee las tablas listadas en el rango
+  de fechas y estado seleccionados.
+end note
+
+@enduml

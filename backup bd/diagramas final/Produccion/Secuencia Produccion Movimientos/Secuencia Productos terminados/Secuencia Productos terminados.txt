@@ -1,0 +1,169 @@
+@startuml
+title Registrar Productos Terminados – Botón: Guardar / Editar / Anular
+
+autonumber
+
+actor "Encargado de Producción" as ENC
+boundary "GUI Lista Productos Terminados" as GUILista
+boundary "GUI Producto Terminado" as GUIForm
+control "ProductoTerminadoController" as CTRL
+control "conexion" as CONX
+entity "producto_terminado" as PT
+entity "productos_terminados_detalle" as PTDET
+entity "orden_produccion" as OP
+entity "orden_detalle_produccion" as OPDET
+entity "control_produccion" as CPROD
+entity "control_produccion_detalle" as CDET
+entity "etapa_produccion" as ETAPA
+entity "etapa_detalle_produccion" as EDET
+entity "productos" as PROD
+entity "stock_producto" as STOCK
+entity "deposito" as DEP
+entity "usuarios" as USU
+entity "sucursales" as SUC
+entity "bitacora" as BIT
+
+ENC -> GUILista : Accede a Producción → Productos terminados
+GUILista -> CTRL : listarProductosTerminados()
+CTRL -> CONX : conector()
+CONX --> CTRL : Connection
+CTRL -> PT : consultar_productos_terminados()
+PT --> CTRL : lista_productos_terminados
+CTRL -> GUILista : mostrar lista principal
+
+ENC -> GUILista : Clic en "Nuevo registro"
+GUILista -> GUIForm : abrir formulario de producto terminado
+
+GUIForm -> CTRL : cargarContexto()
+CTRL -> USU : consultar_usuario(id_usuario)
+USU --> CTRL : datos_usuario
+CTRL -> SUC : consultar_sucursal(id_sucursal)
+SUC --> CTRL : datos_sucursal
+CTRL -> OP : consultar_ordenes_en_proceso()
+OP --> CTRL : lista_ordenes
+CTRL -> DEP : consultar_depositos()
+DEP --> CTRL : lista_depositos
+CTRL -> GUIForm : mostrar contexto, OP y depósitos
+
+ENC -> GUIForm : Selecciona OP
+GUIForm -> CTRL : cargarProductosFinalizables(orden_id)
+
+CTRL -> OPDET : consultar_detalle_orden(orden_id)
+OPDET --> CTRL : detalle_orden
+
+CTRL -> CPROD : consultar_controles_op(orden_id)
+CPROD --> CTRL : controles_op
+
+CTRL -> CDET : consultar_detalle_controles(controles_op)
+CDET --> CTRL : productos_procesados
+
+CTRL -> ETAPA : consultar_rutas_productos()
+ETAPA --> CTRL : rutas_productos
+
+CTRL -> EDET : consultar_ultima_etapa_productos()
+EDET --> CTRL : ultima_etapa
+
+CTRL -> PTDET : consultar_pt_registrados(orden_id)
+PTDET --> CTRL : cantidades_ya_terminadas
+
+CTRL -> PROD : consultar_productos_finalizables()
+PROD --> CTRL : productos_finalizables
+
+CTRL -> GUIForm : mostrar productos finalizables
+
+ENC -> GUIForm : Selecciona producto, depósito y cantidad terminada
+ENC -> GUIForm : Ingresa fechas de elaboración/vencimiento
+ENC -> GUIForm : Clic en "Agregar ítem"
+
+GUIForm -> CTRL : validarItem(producto_id, deposito_id, cantidad_terminada, fechas)
+CTRL --> GUIForm : ítem válido / inválido
+GUIForm -> ENC : Mostrar error si existen datos inválidos
+
+GUIForm -> CTRL : agregarItem(producto_id, deposito_id, cantidad_terminada, fechas)
+CTRL -> GUIForm : agregar ítem al detalle
+
+ENC -> GUIForm : Clic en "Guardar"
+GUIForm -> CTRL : validarDetalle(detalle)
+CTRL --> GUIForm : detalle válido / inválido
+GUIForm -> ENC : Mostrar error si el detalle está vacío
+
+GUIForm -> CTRL : registrarProductoTerminado(datos_pt, detalle)
+
+CTRL -> PT : insertar_producto_terminado(terminado_fecha, orden_id, id_usuario)
+PT --> CTRL : terminado_id
+
+CTRL -> PTDET : insertar_detalle_pt(terminado_id, producto_id, deposito_id, terminado_cantidad, terminado_fecha_elab, terminado_fecha_venc)
+PTDET --> CTRL : detalle registrado
+
+CTRL -> STOCK : incrementar_stock_producto(producto_id, deposito_id, terminado_cantidad)
+STOCK --> CTRL : stock actualizado
+
+CTRL -> OPDET : actualizar_cantidad_pendiente(orden_id, producto_id, terminado_cantidad)
+OPDET --> CTRL : pendiente actualizado
+
+CTRL -> OP : actualizar_estado_orden(orden_id)
+OP --> CTRL : estado actualizado
+
+CTRL -> BIT : registrarBitacora(id_usuario, accion_realizada, fecha_accion)
+BIT --> CTRL : registro exitoso
+
+CTRL -> GUIForm : mostrar confirmación
+GUIForm -> GUILista : actualizar lista principal
+
+ENC -> GUILista : Selecciona registro y clic en "Editar"
+GUILista -> CTRL : obtenerProductoTerminado(terminado_id)
+
+CTRL -> PT : consultar_producto_terminado(terminado_id)
+PT --> CTRL : datos_pt
+
+CTRL -> PTDET : consultar_detalle_pt(terminado_id)
+PTDET --> CTRL : detalle_pt
+
+CTRL -> GUIForm : mostrar formulario con datos cargados
+
+ENC -> GUIForm : Modifica fecha del registro
+GUIForm -> CTRL : editarProductoTerminado(terminado_id, terminado_fecha)
+
+CTRL -> PT : actualizar_fecha_producto_terminado(terminado_id, terminado_fecha)
+PT --> CTRL : actualización exitosa
+
+CTRL -> BIT : registrarBitacora(id_usuario, accion_realizada, fecha_accion)
+BIT --> CTRL : registro exitoso
+
+CTRL -> GUIForm : mostrar confirmación
+GUIForm -> GUILista : actualizar lista principal
+
+ENC -> GUILista : Selecciona registro y clic en "Anular"
+GUILista -> ENC : Solicitar confirmación
+
+ENC -> GUILista : Confirma anulación
+GUILista -> CTRL : anularProductoTerminado(terminado_id)
+
+CTRL -> PT : consultar_producto_terminado(terminado_id)
+PT --> CTRL : datos_pt
+
+CTRL -> PTDET : consultar_detalle_pt(terminado_id)
+PTDET --> CTRL : detalle_pt
+
+GUILista -> CTRL : validarControlCalidadAsociado(terminado_id)
+CTRL --> GUILista : sin control de calidad / con control de calidad
+
+CTRL -> STOCK : revertir_stock_producto(producto_id, deposito_id, terminado_cantidad)
+STOCK --> CTRL : stock revertido
+
+CTRL -> OPDET : restaurar_cantidad_pendiente(orden_id, producto_id, terminado_cantidad)
+OPDET --> CTRL : pendiente restaurado
+
+CTRL -> PT : eliminar_producto_terminado(terminado_id)
+PT --> CTRL : anulación exitosa
+
+CTRL -> OP : actualizar_estado_orden(orden_id)
+OP --> CTRL : estado actualizado
+
+CTRL -> BIT : registrarBitacora(id_usuario, accion_realizada, fecha_accion)
+BIT --> CTRL : registro exitoso
+
+CTRL -> GUILista : mostrar confirmación o error
+GUILista -> ENC : actualizar lista principal
+
+@enduml

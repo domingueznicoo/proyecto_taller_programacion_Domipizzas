@@ -1,0 +1,226 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+left to right direction
+
+title Diagrama de Clases - Caso de Uso "Registrar Control de Producción"
+
+class "GUI Lista Control de Producción" as GUILista <<boundary>> {
+  +btn_nuevo
+  +btn_buscador
+  +tbl_control
+  +btn_detalle
+  +btn_editar
+  +btn_anular
+  +btn_anterior
+  +btn_siguiente
+  +index() : void
+  +editar() : void
+  +anular() : void
+}
+
+class "GUI Control de Producción" as GUIForm <<boundary>> {
+  +txt_fecha
+  +select_op
+  +select_producto
+  +select_etapa
+  +select_inspector
+  +txt_cantidad_procesada
+  +txt_observacion
+  +select_materia_prima
+  +txt_cantidad_consumida
+  +tbl_consumos
+  +btn_agregar
+  +btn_quitar
+  +btn_guardar
+  +btn_cancelar
+  +btn_cerrar
+  +guardar() : void
+}
+
+class ControlProduccionController <<control>> {
+  +listarControles() : void
+  +cargarContexto() : void
+  +cargarOrdenesProduccion() : void
+  +cargarProductosOrden() : void
+  +determinarSiguienteEtapa() : void
+  +cargarInspectores() : void
+  +validarConsumo() : boolean
+  +agregarConsumo() : void
+  +quitarConsumo() : void
+  +validarControl() : boolean
+  +validarStock() : boolean
+  +registrarControl() : void
+  +editarControl() : void
+  +anularControl() : void
+  +actualizarStock() : void
+  +actualizarOrdenProduccion() : void
+  +registrarBitacora() : void
+}
+
+class conexion <<control>> {
+  -host : String
+  -puerto : int
+  -nombre_bd : String
+  -contraseña : String
+  +conector() : Connection
+}
+
+class control_produccion <<entity>> {
+  +control_id : int
+  +control_fecha : Date
+  +control_estado : String
+  +id_inspectores : int
+  +orden_id : int
+  +id_usuario : int
+  +producto_id : int
+  +etapa_id : int
+  +control_observacion : Text
+}
+
+class control_produccion_detalle <<entity>> {
+  +control_id : int
+  +producto_id : int
+  +control_cantidad : int
+  +control_descri : String
+}
+
+class control_produccion_consumo <<entity>> {
+  +control_id : int
+  +id_materia_prima : int
+  +cantidad_consumida : Decimal
+}
+
+class orden_produccion <<entity>> {
+  +orden_id : int
+  +orden_prod_fecha : Date
+  +orden_prod_fecha_entrega : Date
+  +orden_prod_estado : String
+  +id_pedido_produccion : int
+  +id_usuario : int
+}
+
+class orden_detalle_produccion <<entity>> {
+  +orden_id : int
+  +producto_id : int
+  +orden_prod_cantidad : int
+  +cantidad_pendiente : int
+}
+
+class etapa_produccion <<entity>> {
+  +etapa_id : int
+  +etapa_fecha : Date
+  +etapa_descri : String
+  +id_usuario : int
+  +producto_id : int
+  +etapa_estado : String
+}
+
+class etapa_detalle_produccion <<entity>> {
+  +etapa_id : int
+  +producto_id : int
+  +etapa_nombre : String
+  +etapa_procedimiento : Text
+  +etapa_secuencia : int
+  +etapa_tiempo_estimado : int
+  +etapa_observaciones : Text
+}
+
+class materia_prima <<entity>> {
+  +id_materia_prima : int
+  +materia_prima_descripcion : String
+  +materia_prima_estado : String
+  +id_unidad : int
+  +id_usuario : int
+  +iva_id : int
+}
+
+class stock_materia_prima <<entity>> {
+  +id_stock : int
+  +id_materia_prima : int
+  +stock_cantidad_minima : int
+  +stock_cantidad_maxima : int
+  +cantidad_existente : int
+  +deposito_id : int
+  +id_usuario : int
+}
+
+class productos <<entity>> {
+  +producto_id : int
+  +producto_precio : int
+  +producto_descri : String
+  +id_unidad : int
+  +id_usuario : int
+  +iva_id : int
+  +producto_estado : String
+  +id_tipo_producto : int
+}
+
+class inspectores <<entity>> {
+  +id_inspectores : int
+  +id_personal : int
+  +inspector_estado : String
+  +id_usuario : int
+}
+
+class usuarios <<entity>> {
+  +id_usuario : int
+  +username : String
+  +estado_usuario : String
+  +id_sucursal : int
+}
+
+class sucursales <<entity>> {
+  +id_sucursal : int
+  +descripcion_sucursal : String
+  +estado_sucursal : String
+}
+
+class bitacora <<entity>> {
+  +id_bitacora : int
+  +id_usuario : int
+  +entidad_afectada : String
+  +id_registro : int
+  +accion_realizada : String
+  +fecha_accion : DateTime
+}
+
+GUILista --> ControlProduccionController
+GUIForm --> ControlProduccionController
+
+ControlProduccionController ..> conexion
+ControlProduccionController ..> control_produccion
+ControlProduccionController ..> control_produccion_detalle
+ControlProduccionController ..> control_produccion_consumo
+ControlProduccionController ..> orden_produccion
+ControlProduccionController ..> orden_detalle_produccion
+ControlProduccionController ..> etapa_produccion
+ControlProduccionController ..> etapa_detalle_produccion
+ControlProduccionController ..> materia_prima
+ControlProduccionController ..> stock_materia_prima
+ControlProduccionController ..> productos
+ControlProduccionController ..> inspectores
+ControlProduccionController ..> usuarios
+ControlProduccionController ..> sucursales
+ControlProduccionController ..> bitacora
+
+orden_produccion "1" --> "0..*" control_produccion
+usuarios "1" --> "0..*" control_produccion
+inspectores "1" --> "0..*" control_produccion
+
+control_produccion "1" *-- "1..*" control_produccion_detalle
+control_produccion "1" *-- "1..*" control_produccion_consumo
+
+productos "1" --> "0..*" control_produccion_detalle
+productos "1" --> "0..*" control_produccion
+etapa_produccion "1" --> "0..*" control_produccion
+
+materia_prima "1" --> "0..*" control_produccion_consumo
+materia_prima "1" --> "0..*" stock_materia_prima
+
+orden_produccion "1" *-- "1..*" orden_detalle_produccion
+productos "1" --> "0..*" orden_detalle_produccion
+
+etapa_produccion "1" *-- "1..*" etapa_detalle_produccion
+
+@enduml
