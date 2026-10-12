@@ -17,9 +17,9 @@ try {
 
     $where = [];
     if ($filtro_estado === 'INACTIVO') {
-        $where[] = "estado_proveedor IN ('INACTIVO', 'ANULADO')";
+        $where[] = "prov_estado IN ('INACTIVO', 'ANULADO')";
     } elseif ($filtro_estado === 'ACTIVO') {
-        $where[] = "estado_proveedor = 'ACTIVO'";
+        $where[] = "prov_estado = 'ACTIVO'";
     }
     $whereClause = !empty($where) ? 'WHERE ' . implode(' AND ', $where) : '';
 
@@ -40,10 +40,10 @@ try {
     $pdf->tablaEncabezado($anchos, ['Cód.', 'Razón Social', 'RUC', 'Teléfono', 'Correo', 'Estado'], $aligns);
 
     $query = $pdo->prepare("
-        SELECT id_proveedor, razon_social, ruc_proveedor, telefono_proveedor, email_proveedor, estado_proveedor
+        SELECT prov_id, prov_razon_social, prov_ruc, prov_telefono, prov_email, prov_estado
         FROM proveedor
         {$whereClause}
-        ORDER BY id_proveedor DESC
+        ORDER BY prov_id DESC
     ");
     $query->execute();
 
@@ -52,17 +52,17 @@ try {
     $inactivos = 0;
 
     while ($row = $query->fetch(PDO::FETCH_ASSOC)) {
-        $estado = strtoupper(trim($row['estado_proveedor'] ?? 'ACTIVO'));
+        $estado = strtoupper(trim($row['prov_estado'] ?? 'ACTIVO'));
         if ($estado === 'ANULADO') {
             $estado = 'INACTIVO';
         }
 
         $pdf->tablaFila($anchos, [
-            $row['id_proveedor'],
-            convertir(substr($row['razon_social'], 0, 24)),
-            convertir($row['ruc_proveedor'] ?? ''),
-            convertir(substr($row['telefono_proveedor'] ?? '-', 0, 14)),
-            convertir(substr($row['email_proveedor'] ?? '-', 0, 22)),
+            $row['prov_id'],
+            convertir(substr($row['prov_razon_social'], 0, 24)),
+            convertir($row['prov_ruc'] ?? ''),
+            convertir(substr($row['prov_telefono'] ?? '-', 0, 14)),
+            convertir(substr($row['prov_email'] ?? '-', 0, 22)),
             convertir($estado),
         ], $aligns);
 

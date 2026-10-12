@@ -161,7 +161,7 @@ function buildDiagramPdf(string $base, string $docTitle, array $entries, string 
     $pdf->SetXY(15, 110);
     $pdf->Cell(180, 10, pdfText($docTitle), 0, 1, 'C');
     $pdf->SetFont('Arial', '', 12);
-    $pdf->Cell(180, 8, pdfText('Sistema Emmanuels — Documentación UML'), 0, 1, 'C');
+    $pdf->Cell(180, 8, pdfText('Sistema DomiPizzas — Documentación UML'), 0, 1, 'C');
     $pdf->SetFont('Arial', 'I', 10);
     $pdf->Ln(6);
     $pdf->Cell(180, 6, pdfText('Orden: Referenciales → Compras → Producción'), 0, 1, 'C');

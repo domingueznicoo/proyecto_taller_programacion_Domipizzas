@@ -163,7 +163,7 @@ document.addEventListener('DOMContentLoaded', () => {
     [
       { seq: 1, nom: 'Preparación', proc: 'Mise en place: porcionar insumos y preparar estación.' },
       { seq: 2, nom: 'Cocción', proc: 'Cocinar / freír según ficha técnica del producto.' },
-      { seq: 3, nom: 'Armado', proc: 'Montar el producto según estándar de la hamburguesería.' },
+      { seq: 3, nom: 'Armado', proc: 'Montar el producto según estándar de la pizzería.' },
       { seq: 4, nom: 'Empaque', proc: 'Envolver, etiquetar y dejar en zona de despacho.' }
     ].forEach(t => filas.push({
       etapa_id: 0, etapa_secuencia: t.seq, etapa_descri: '', etapa_nombre: t.nom,

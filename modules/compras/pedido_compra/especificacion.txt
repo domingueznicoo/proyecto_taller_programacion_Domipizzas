@@ -1,0 +1,74 @@
+Registrar Pedidos de Compra  
+Descripción Básica   
+Permitir al Encargado de Compras registrar pedidos de compra con sus ítems de materia prima, dejando el documento en estado Pendiente para su posterior gestión (presupuesto, orden, etc.).
+Actores Relacionados   
+•	Encargado de Compras (primario).
+•	Sistema (secundario).
+Pre Condición   
+•	El usuario posee perfil con permisos del módulo Compras.
+•	Existen materias primas registradas y activas.
+•	El usuario está registrado y activo.
+•	Conexión estable con la base de datos.
+Flujo de Eventos   
+Flujo Básico   
+•	El Encargado de Compras accede a Compras → Pedidos.
+•	El sistema muestra la lista principal de pedidos con búsqueda, orden y paginación.
+•	El Encargado selecciona Nuevo.
+•	El sistema muestra el formulario de pedido con contexto (usuario, fecha, hora y número de pedido).
+•	El sistema permite seleccionar opcionalmente un Pedido de Materia Prima en estado PENDIENTE.
+•	Si el Encargado selecciona un Pedido de Materia Prima, el sistema carga automáticamente las materias primas y cantidades solicitadas asociadas al pedido.
+•	Si no selecciona un Pedido de Materia Prima, el Encargado puede continuar con la carga manual de los ítems.
+•	Para la carga manual, El Encargado selecciona una materia prima.
+•	El Encargado ingresa la cantidad.
+•	El Encargado hace clic en Agregar ítem.
+•	El sistema valida los campos obligatorios (materia prima y cantidad) y que la cantidad sea numérica y mayor a cero.
+•	El sistema agrega el ítem al detalle del pedido; si ya existe en el detalle, se consolida.
+•	El Encargado puede repetir los pasos para agregar más ítems.
+•	El Encargado hace clic en Guardar.
+•	El sistema valida que exista al menos un ítem en el detalle.
+•	El sistema asigna número correlativo, registra cabecera y detalle y deja el Pedido de Compra en estado PENDIENTE.
+•	Si el Pedido de Compra fue generado a partir de un Pedido de Materia Prima, el sistema lo vincula al Pedido de Compra y cambia el estado del Pedido de Materia Prima a PROCESADO.
+•	El sistema muestra mensaje de confirmación y actualiza la lista principal.
+Edición
+•	El Encargado selecciona un pedido en estado Pendiente y pulsa Editar.
+•	El sistema muestra el formulario con los datos cargados.
+•	El Encargado modifica ítems del detalle (agregar/quitar/cambiar cantidades) y/o observaciones.
+•	El sistema valida que las cantidades sean numéricas y > 0 y que el detalle no quede vacío.
+•	El Encargado confirma con Guardar.
+•	El sistema actualiza el pedido, registra la bitácora de cambios (qué, quién, cuándo) y actualiza la lista.
+Anulación
+•	El Encargado selecciona un Pedido de Compra en estado PENDIENTE y pulsa Anular.
+•	El sistema solicita confirmación.
+•	El Encargado confirma la anulación.
+•	El sistema verifica que el Pedido de Compra permanezca en estado PENDIENTE y que no esté vinculado a documentos posteriores (presupuesto, orden o compra).
+•	Si cumple las condiciones, el sistema cambia el estado del Pedido de Compra a ANULADO.
+•	Si el Pedido de Compra está vinculado a un Pedido de Materia Prima, el sistema cambia el estado de dicho pedido de PROCESADO a PENDIENTE, dejándolo nuevamente disponible para ser utilizado.
+•	El sistema registra la bitácora y actualiza la lista principal.
+•	Si el pedido no cumple las condiciones de anulación, el sistema rechaza la operación e informa el motivo.
+Flujo Alternativo
+•	Quitar ítem: el Encargado selecciona un ítem del detalle y pulsa Quitar → el sistema elimina la fila del detalle.
+•	Pedido de Materia Prima: el Encargado puede seleccionar opcionalmente un Pedido de Materia Prima PENDIENTE para cargar automáticamente sus materias primas y cantidades solicitadas.
+•	Carga manual: si no selecciona un Pedido de Materia Prima, el Encargado puede cargar manualmente las materias primas y cantidades.
+•	Pedido de Materia Prima no PENDIENTE → no se encuentra disponible para selección.
+•	Cantidad no numérica o ≤ 0 → rechazo con mensaje.
+•	Detalle vacío → no permite guardar.
+•	Reporte: permite visualizar o imprimir el Pedido de Compra.
+•	Búsqueda por número, fecha o estado; orden por columnas y paginación.
+•	En el formulario: Cancelar limpia el formulario y Cerrar sale sin guardar.
+•	Apertura de detalle en modal desde la lista (solo lectura cuando corresponda).
+Postcondiciones
+•	El Pedido de Compra queda registrado con cabecera y detalle en estado PENDIENTE, o ANULADO si se ejecutó la anulación.
+•	El Pedido de Compra puede quedar vinculado a un Pedido de Materia Prima cuando se origine a partir de este.
+•	Si se genera desde un Pedido de Materia Prima, este pasa de PENDIENTE a PROCESADO.
+•	Si se anula el Pedido de Compra vinculado antes de generar documentos posteriores, el Pedido de Materia Prima vuelve a PENDIENTE.
+•	Si el Pedido de Compra se registra mediante carga manual, no queda asociado a un Pedido de Materia Prima.
+•	El registro del Pedido de Compra no genera movimiento de stock.
+•	El sistema muestra mensajes claros de confirmación o error.
+•	Se registran en bitácora las acciones de alta, edición y anulación.
+Descripción de las Tablas
+•	pedido_compra
+•	pedido_detalle_compra
+•	pedido_materia_prima
+•	pedido_detalle_materia_prima
+•	usuario
+•	materia_prima

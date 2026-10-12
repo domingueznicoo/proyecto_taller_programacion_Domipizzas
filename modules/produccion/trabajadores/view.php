@@ -23,7 +23,7 @@ try {
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
     ]);
 
-    $query = $pdo->prepare("SELECT * FROM usuarios WHERE username = :username");
+    $query = $pdo->prepare("SELECT * FROM usuario WHERE username = :username");
     $query->bindParam(':username', $username, PDO::PARAM_STR);
     $query->execute();
     $auth_user = $query->fetch();
@@ -48,7 +48,7 @@ $extra_js_plugins = [
 
 include PROJECT_ROOT . '/header.php';
 
-$mostrarListado = !(isset($_GET['form_trabajador']) && ($_GET['form'] === 'add' || $_GET['form'] === 'edit'));
+$mostrarListado = !(isset($_GET['form_trabajador']) && (($_GET['form'] ?? '') === 'add' || ($_GET['form'] ?? '') === 'edit'));
 ?>
 
 <?php if ($mostrarListado): ?>
@@ -58,7 +58,7 @@ $mostrarListado = !(isset($_GET['form_trabajador']) && ($_GET['form'] === 'add' 
             <a href="?form_trabajador=add&form=add" class="btn btn-primary btn-sm shadow-sm">
                 <i class="fas fa-plus fa-sm text-white-50"></i> Nuevo Trabajador
             </a>
-            <button type="button" class="btn btn-warning btn-sm shadow-sm" data-toggle="modal" data-target="#modalReporte">
+            <button type="button" class="btn btn-warning btn-sm shadow-sm" data-toggle="modal" data-target="#modalReporte" title="Reporte">
                 <i class="fas fa-print fa-sm text-white-50"></i> Imprimir Reporte
             </button>
         </div>
@@ -111,8 +111,7 @@ $mostrarListado = !(isset($_GET['form_trabajador']) && ($_GET['form'] === 'add' 
                             <th>Personal</th>
                             <th>Rol</th>
                             <th>Turno</th>
-                            <th>Costo Hora</th>
-                            <th>Etapa Predeterminada</th>
+                            <th>Costo por hora (Gs.)</th>
                             <th>Estado</th>
                             <th>Acciones</th>
                         </tr>
@@ -121,18 +120,14 @@ $mostrarListado = !(isset($_GET['form_trabajador']) && ($_GET['form'] === 'add' 
                         <?php
                         try {
                             $sql = "
-                                SELECT
-                                    t.trabajadores_id,
-                                    t.trabajador_rol,
-                                    t.trabajador_turno,
-                                    t.trabajador_costo_hora,
-                                    t.trabajador_estado,
-                                    TRIM(per.personal_nombre || ' ' || per.personal_apellido) AS nombre_personal,
-                                    COALESCE(ep.etapa_descri, 'Sin etapa') AS etapa_descri
-                                FROM trabajadores t
-                                JOIN personal per ON per.id_personal = t.id_personal
-                                LEFT JOIN etapa_produccion ep ON ep.etapa_id = t.id_etapa
-                                ORDER BY t.trabajadores_id DESC
+                                SELECT trabajadores.trabajadores_id, trabajadores.trabajador_estado, trabajadores.trabajador_costo_hora,
+                                    personal.personal_nombre, personal.personal_apellido,
+                                    rol.rol_descripcion, turno.turno_descripcion
+                                FROM trabajadores
+                                JOIN personal ON personal.personal_id = trabajadores.personal_id
+                                LEFT JOIN rol ON rol.rol_id = trabajadores.rol_id
+                                LEFT JOIN turno ON turno.turno_id = trabajadores.turno_id
+                                ORDER BY trabajadores.trabajadores_id DESC
                             ";
                             foreach ($pdo->query($sql) as $data) {
                                 $estado = strtoupper(trim($data['trabajador_estado'] ?? 'ACTIVO'));
@@ -143,24 +138,25 @@ $mostrarListado = !(isset($_GET['form_trabajador']) && ($_GET['form'] === 'add' 
 
                                 echo "<tr>";
                                 echo "<td>" . htmlspecialchars($data['trabajadores_id']) . "</td>";
-                                echo "<td>" . htmlspecialchars($data['nombre_personal']) . "</td>";
-                                echo "<td>" . htmlspecialchars($data['trabajador_rol'] ?? '') . "</td>";
-                                echo "<td>" . htmlspecialchars($data['trabajador_turno'] ?? '') . "</td>";
+                                echo "<td>" . htmlspecialchars(trim($data['personal_nombre'] . ' ' . $data['personal_apellido'])) . "</td>";
+                                echo "<td>" . htmlspecialchars($data['rol_descripcion'] ?? '') . "</td>";
+                                echo "<td>" . htmlspecialchars($data['turno_descripcion'] ?? '') . "</td>";
                                 echo "<td>" . number_format((float)$data['trabajador_costo_hora'], 0, ',', '.') . "</td>";
-                                echo "<td>" . htmlspecialchars($data['etapa_descri']) . "</td>";
                                 echo "<td><span class='badge {$estadoClass}'>" . htmlspecialchars($estado) . "</span></td>";
                                 echo "<td>";
                                 echo "<a href='?form_trabajador=edit&form=edit&id={$data['trabajadores_id']}' class='btn btn-warning btn-sm' title='Editar'>";
                                 echo "<i class='fas fa-edit'></i></a> ";
                                 if ($estado === 'ACTIVO') {
-                                    echo "<button type='button' class='btn btn-danger btn-sm btn-inactivar' data-id='{$data['trabajadores_id']}' data-descripcion='" . htmlspecialchars($data['nombre_personal'], ENT_QUOTES) . "' title='Inactivar'>";
+                                    echo "<button type='button' class='btn btn-danger btn-sm btn-inactivar' data-id='{$data['trabajadores_id']}' data-descripcion='" . htmlspecialchars(trim($data['personal_nombre'] . ' ' . $data['personal_apellido']), ENT_QUOTES) . "' title='Desactivar' aria-label='Desactivar'>";
                                     echo "<i class='fas fa-ban'></i></button>";
+                                } else {
+                                    echo "<button type='button' class='btn btn-success btn-sm btn-activar' data-id='{$data['trabajadores_id']}' title='Activar' aria-label='Activar'><i class='fas fa-check'></i></button>";
                                 }
                                 echo "</td>";
                                 echo "</tr>";
                             }
                         } catch (PDOException $e) {
-                            echo "<tr><td colspan='8'>Error al consultar los datos: " . htmlspecialchars($e->getMessage()) . "</td></tr>";
+                            echo "<tr><td colspan='7'>Error al consultar los datos: " . htmlspecialchars($e->getMessage()) . "</td></tr>";
                         }
                         ?>
                     </tbody>
@@ -240,6 +236,22 @@ $(document).ready(function() {
             "url": "<?= $BASE_PATH ?>vendor/datatables/Spanish.json"
         },
         "order": [[0, "desc"]]
+    });
+
+    $('#dataTable').on('click', '.btn-activar', function() {
+        if (!confirm('¿Desea activar nuevamente este trabajador?')) return;
+        var boton = $(this);
+        boton.prop('disabled', true);
+        $.ajax({
+            url: 'proses.php?act=activate', type: 'POST',
+            data: { id: boton.data('id') }, dataType: 'json',
+            success: function(response) {
+                alert(response.message || 'No se pudo activar el trabajador.');
+                if (response.success) window.location.reload();
+            },
+            error: function() { alert('No se pudo comunicar con el servidor.'); },
+            complete: function() { boton.prop('disabled', false); }
+        });
     });
 
     var trabajadorIdActual = null;
@@ -327,7 +339,7 @@ $(document).ready(function() {
     });
 
     $('#confirmForceEliminarBtn').on('click', function() {
-        if (confirm('¿Confirma inactivar el trabajador aunque tenga equipos o costos de producción asociados?')) {
+        if (confirm('¿Confirma inactivar el trabajador aunque tenga equipos o inspectores asociados?')) {
             ejecutarInactivacion(true);
         }
     });

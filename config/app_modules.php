@@ -5,7 +5,7 @@
  * El código legacy de ventas permanece en modules/ pero queda deshabilitado
  * según el alcance de la tesis: Compras y Producción.
  *
- * @see Lucas_Medina_analisis.docx — Sistema de Gestión de Compras y Producción
+ * @see Nicolas_Dominguez_analisis.docx — Sistema de Gestión de Compras y Producción
  */
 
 /** Módulo de ventas (pedidos, facturas, cobranzas, caja, libro ventas, etc.) */

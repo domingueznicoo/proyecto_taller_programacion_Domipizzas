@@ -20,14 +20,19 @@ function bitacora_ensure_anulacion_accion(PDO $pdo): void
             LIMIT 1
         ")->fetch(PDO::FETCH_ASSOC);
 
-        if ($row && stripos((string)$row['def'], 'ANULACION') !== false) {
+        if ($row && stripos((string)$row['def'], 'ANULACION') !== false
+            && stripos((string)$row['def'], 'ACCESO_EXITOSO') !== false
+            && stripos((string)$row['def'], 'ACCESO_FALLIDO') !== false
+            && stripos((string)$row['def'], 'CUENTA_BLOQUEADA') !== false
+            && stripos((string)$row['def'], 'ACCESO_DENEGADO') !== false) {
             return;
         }
 
         $pdo->exec('ALTER TABLE bitacora DROP CONSTRAINT IF EXISTS ck_bitacora_accion');
         $pdo->exec("
             ALTER TABLE bitacora ADD CONSTRAINT ck_bitacora_accion CHECK (
-                accion_realizada IN ('ALTA', 'MODIFICACION', 'ELIMINACION', 'INACTIVACION', 'ANULACION')
+                accion_realizada IN ('ALTA', 'MODIFICACION', 'ELIMINACION', 'INACTIVACION', 'ANULACION',
+                    'ACCESO_EXITOSO', 'ACCESO_FALLIDO', 'CUENTA_BLOQUEADA', 'ACCESO_DENEGADO')
             )
         ");
     } catch (Throwable $e) {
@@ -37,7 +42,7 @@ function bitacora_ensure_anulacion_accion(PDO $pdo): void
 
 function bitacora_registrar(
     PDO $pdo,
-    int $idUsuario,
+    ?int $idUsuario,
     string $entidad,
     string $accion,
     string $descripcion,

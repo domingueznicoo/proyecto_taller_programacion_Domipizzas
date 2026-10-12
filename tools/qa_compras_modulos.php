@@ -1,6 +1,6 @@
 <?php
 /**
- * Validaciones QA — todos los submódulos de Compras (vs Lucas_Medina_analisis.docx).
+ * Validaciones QA — todos los submódulos de Compras (vs Nicolas_Dominguez_analisis.docx).
  */
 declare(strict_types=1);
 

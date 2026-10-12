@@ -17,7 +17,7 @@ try {
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
     ]);
-    $q = $pdo->prepare('SELECT 1 FROM usuarios WHERE username = :u');
+    $q = $pdo->prepare('SELECT 1 FROM usuario WHERE username = :u');
     $q->execute([':u' => $_SESSION['username']]);
     if (!$q->fetchColumn()) {
         session_destroy();
@@ -42,9 +42,11 @@ $mostrarListado = !(isset($_GET['form_inspector']) && in_array($_GET['form'] ?? 
 <?php if ($mostrarListado): ?>
     <div class="d-sm-flex align-items-center justify-content-between mb-4">
         <h1 class="h3 mb-0 text-gray-800">Mantener Inspectores</h1>
+        <div>
         <a href="?form_inspector=add&form=add" class="btn btn-primary btn-sm shadow-sm">
             <i class="fas fa-plus fa-sm text-white-50"></i> Nuevo Inspector
         </a>
+        <a href="reporte.php" target="_blank" class="btn btn-warning btn-sm shadow-sm" title="Reporte"><i class="fas fa-print"></i> Imprimir Reporte</a></div>
     </div>
 
     <?php
@@ -52,11 +54,13 @@ $mostrarListado = !(isset($_GET['form_inspector']) && in_array($_GET['form'] ?? 
         1 => ['msg' => 'Inspector registrado correctamente.', 'class' => 'alert-success'],
         2 => ['msg' => 'Inspector modificado correctamente.', 'class' => 'alert-success'],
         3 => ['msg' => 'Inspector inactivado correctamente.', 'class' => 'alert-success'],
+        6 => ['msg' => 'Inspector activado correctamente.', 'class' => 'alert-success'],
         4 => ['msg' => 'No se pudo realizar la operación.', 'class' => 'alert-danger'],
-        5 => ['msg' => 'Ya existe un inspector activo para ese personal.', 'class' => 'alert-danger'],
+        5 => ['msg' => 'Ya existe un inspector activo para ese trabajador.', 'class' => 'alert-danger'],
     ];
     if (!empty($_GET['alert']) && isset($alertMap[(int)$_GET['alert']])) {
         $d = $alertMap[(int)$_GET['alert']];
+        if (!empty($_GET['msg'])) $d['msg'] = htmlspecialchars($_GET['msg'], ENT_QUOTES, 'UTF-8');
         echo "<div class='alert {$d['class']} alert-dismissible fade show'>{$d['msg']}
               <button type='button' class='close' data-dismiss='alert'><span>&times;</span></button></div>";
     }
@@ -70,7 +74,7 @@ $mostrarListado = !(isset($_GET['form_inspector']) && in_array($_GET['form'] ?? 
                     <thead>
                         <tr>
                             <th>Código</th>
-                            <th>Personal</th>
+                            <th>Trabajador</th>
                             <th>Estado</th>
                             <th>Acciones</th>
                         </tr>
@@ -78,11 +82,12 @@ $mostrarListado = !(isset($_GET['form_inspector']) && in_array($_GET['form'] ?? 
                     <tbody>
                         <?php
                         $sql = "
-                            SELECT i.id_inspectores, i.inspector_estado,
-                                   TRIM(p.personal_nombre || ' ' || p.personal_apellido) AS nombre_personal
-                            FROM inspectores i
-                            JOIN personal p ON p.id_personal = i.id_personal
-                            ORDER BY i.id_inspectores DESC
+                            SELECT inspectores.id_inspectores, inspectores.inspector_estado, trabajadores.trabajadores_id,
+                                personal.personal_nombre, personal.personal_apellido
+                            FROM inspectores
+                            JOIN trabajadores ON trabajadores.trabajadores_id = inspectores.trabajadores_id
+                            JOIN personal ON personal.personal_id = trabajadores.personal_id
+                            ORDER BY inspectores.id_inspectores DESC
                         ";
                         foreach ($pdo->query($sql) as $row) {
                             $estado = strtoupper(trim($row['inspector_estado'] ?? 'ACTIVO'));
@@ -90,12 +95,16 @@ $mostrarListado = !(isset($_GET['form_inspector']) && in_array($_GET['form'] ?? 
                             $id = (int)$row['id_inspectores'];
                             echo '<tr>';
                             echo '<td>' . $id . '</td>';
-                            echo '<td>' . htmlspecialchars($row['nombre_personal']) . '</td>';
+                            echo '<td>' . htmlspecialchars(trim($row['personal_nombre'] . ' ' . $row['personal_apellido'])) . '</td>';
                             echo "<td><span class='badge {$cls}'>" . htmlspecialchars($estado) . '</span></td>';
                             echo '<td>';
                             echo "<a href='?form_inspector=edit&form=edit&id={$id}' class='btn btn-warning btn-sm' title='Editar'><i class='fas fa-edit'></i></a> ";
                             if ($estado === 'ACTIVO') {
-                                echo "<button type='button' class='btn btn-danger btn-sm btn-inactivar' data-id='{$id}' data-nombre='" . htmlspecialchars($row['nombre_personal'], ENT_QUOTES) . "'><i class='fas fa-ban'></i></button>";
+                                echo "<button type='button' title='Desactivar' aria-label='Desactivar' class='btn btn-danger btn-sm btn-inactivar' data-id='{$id}' data-nombre='" . htmlspecialchars(trim($row['personal_nombre'] . ' ' . $row['personal_apellido']), ENT_QUOTES) . "'><i class='fas fa-ban'></i></button>";
+                            } else {
+                                echo "<form action='proses.php?act=activate' method='POST' class='d-inline' onsubmit=\"return confirm('¿Activar nuevamente este inspector?')\">";
+                                echo "<input type='hidden' name='id_inspectores' value='{$id}'>";
+                                echo "<button class='btn btn-success btn-sm' title='Activar' aria-label='Activar'><i class='fas fa-check'></i></button></form>";
                             }
                             echo '</td></tr>';
                         }
@@ -118,7 +127,10 @@ $mostrarListado = !(isset($_GET['form_inspector']) && in_array($_GET['form'] ?? 
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-danger" id="btnConfirmInactivar">Inactivar</button>
+                    <form action="proses.php?act=inactivate" method="POST">
+                        <input type="hidden" name="id_inspectores" id="inspectorInactivarId">
+                        <button type="submit" class="btn btn-danger">Desactivar</button>
+                    </form>
                 </div>
             </div>
         </div>
@@ -134,15 +146,13 @@ $(document).ready(function() {
     $('#dataTable').DataTable({ language: { url: '//cdn.datatables.net/plug-ins/1.10.24/i18n/Spanish.json' } });
   }
   let inspectorId = 0;
-  $('.btn-inactivar').on('click', function() {
+  $('#dataTable').on('click', '.btn-inactivar', function() {
     inspectorId = $(this).data('id');
+    $('#inspectorInactivarId').val(inspectorId);
     $('#nombreInspector').text($(this).data('nombre'));
     $('#modalInactivar').modal('show');
   });
-  $('#btnConfirmInactivar').on('click', function() {
-    if (!inspectorId) return;
-    window.location.href = 'proses.php?act=inactivate&id=' + inspectorId;
-  });
+
 });
 JS;
 include PROJECT_ROOT . '/footer.php';

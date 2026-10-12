@@ -1,6 +1,13 @@
 <?php
 // Genera informe PDF de trabajadores.
 require_once __DIR__ . '/../../../config/bootstrap.php';
+if (session_status() !== PHP_SESSION_ACTIVE) session_start();
+if (empty($_SESSION['username'])) {
+    header('Location: ' . loginUrl());
+    exit;
+}
+require_once PROJECT_ROOT . '/config/permissions.php';
+check_permission('REFERENCIALES');
 require_once PROJECT_ROOT . '/config/database.php';
 require_once PROJECT_ROOT . '/reporte/pedido_ventas.php';
 
@@ -17,9 +24,9 @@ try {
 
     $where = [];
     if ($filtro_estado === 'INACTIVO') {
-        $where[] = "t.trabajador_estado IN ('INACTIVO', 'ANULADO')";
+        $where[] = "trabajadores.trabajador_estado IN ('INACTIVO', 'ANULADO')";
     } elseif ($filtro_estado === 'ACTIVO') {
-        $where[] = "t.trabajador_estado = 'ACTIVO'";
+        $where[] = "trabajadores.trabajador_estado = 'ACTIVO'";
     }
     $whereClause = !empty($where) ? 'WHERE ' . implode(' AND ', $where) : '';
 
@@ -35,24 +42,20 @@ try {
     $pdf->AliasNbPages();
     $pdf->AddPage();
 
-    $anchos = [12, 38, 28, 22, 22, 38, 20];
-    $aligns = ['C', 'L', 'L', 'C', 'R', 'L', 'C'];
-    $pdf->tablaEncabezado($anchos, ['Cód.', 'Personal', 'Rol', 'Turno', 'Costo/h', 'Etapa', 'Estado'], $aligns);
+    $anchos = [12, 53, 35, 30, 30, 20];
+    $aligns = ['C', 'L', 'L', 'L', 'R', 'C'];
+    $pdf->tablaEncabezado($anchos, ['Cód.', 'Personal', 'Rol', 'Turno', 'Costo/h (Gs.)', 'Estado'], $aligns);
 
     $query = $pdo->prepare("
-        SELECT
-            t.trabajadores_id,
-            t.trabajador_rol,
-            t.trabajador_turno,
-            t.trabajador_costo_hora,
-            t.trabajador_estado,
-            TRIM(per.personal_nombre || ' ' || per.personal_apellido) AS nombre_personal,
-            COALESCE(ep.etapa_descri, '-') AS etapa_descri
-        FROM trabajadores t
-        JOIN personal per ON per.id_personal = t.id_personal
-        LEFT JOIN etapa_produccion ep ON ep.etapa_id = t.id_etapa
+        SELECT trabajadores.trabajadores_id, trabajadores.trabajador_estado, trabajadores.trabajador_costo_hora,
+            personal.personal_nombre, personal.personal_apellido,
+            rol.rol_descripcion, turno.turno_descripcion
+        FROM trabajadores
+        JOIN personal ON personal.personal_id = trabajadores.personal_id
+        LEFT JOIN rol ON rol.rol_id = trabajadores.rol_id
+        LEFT JOIN turno ON turno.turno_id = trabajadores.turno_id
         {$whereClause}
-        ORDER BY t.trabajadores_id DESC
+        ORDER BY trabajadores.trabajadores_id DESC
     ");
     $query->execute();
 
@@ -68,11 +71,10 @@ try {
 
         $pdf->tablaFila($anchos, [
             $row['trabajadores_id'],
-            convertir(substr($row['nombre_personal'], 0, 22)),
-            convertir(substr($row['trabajador_rol'] ?? '-', 0, 16)),
-            convertir($row['trabajador_turno'] ?? '-'),
+            convertir(substr(trim($row['personal_nombre'] . ' ' . $row['personal_apellido']), 0, 22)),
+            convertir(substr($row['rol_descripcion'] ?? '-', 0, 16)),
+            convertir($row['turno_descripcion'] ?? '-'),
             number_format((float)$row['trabajador_costo_hora'], 0, ',', '.'),
-            convertir(substr($row['etapa_descri'], 0, 20)),
             convertir($estado),
         ], $aligns);
 

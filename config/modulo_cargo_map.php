@@ -51,7 +51,7 @@ function obtenerCargosIdsPorModulo(PDO $pdo, int $moduloId): array {
     try {
         // Obtener descripción del módulo
         $stmtModulo = $pdo->prepare("
-            SELECT UPPER(TRIM(modulo_descri)) AS modulo_descri
+            SELECT modulo_nombre
             FROM modulos
             WHERE modulo_id = :modulo_id
             LIMIT 1
@@ -63,7 +63,7 @@ function obtenerCargosIdsPorModulo(PDO $pdo, int $moduloId): array {
             return [];
         }
         
-        $moduloDescripcion = trim($modulo['modulo_descri']);
+        $moduloDescripcion = trim($modulo['modulo_nombre']);
         $cargosPermitidos = obtenerCargosPorModulo($moduloDescripcion);
         
         // ADMIN solo está permitido si el módulo es ADMIN
@@ -83,11 +83,11 @@ function obtenerCargosIdsPorModulo(PDO $pdo, int $moduloId): array {
         }
         
         $sql = "
-            SELECT id_cargo
-            FROM cargos
-            WHERE UPPER(TRIM(cargo_descripcion)) IN (" . implode(',', $placeholders) . ")
+            SELECT cargo_id
+            FROM cargo
+            WHERE UPPER(TRIM(descrip_cargo)) IN (" . implode(',', $placeholders) . ")
             AND estado_cargo = 'ACTIVO'
-            ORDER BY cargo_descripcion ASC
+            ORDER BY descrip_cargo ASC
         ";
         
         $stmt = $pdo->prepare($sql);
@@ -119,7 +119,7 @@ function validarCargoParaModulo(PDO $pdo, int $moduloId, int $cargoId): bool {
     try {
         // Obtener módulo
         $stmtModulo = $pdo->prepare("
-            SELECT UPPER(TRIM(modulo_descri)) AS modulo_descri
+            SELECT modulo_nombre
             FROM modulos
             WHERE modulo_id = :modulo_id
             LIMIT 1
@@ -133,9 +133,9 @@ function validarCargoParaModulo(PDO $pdo, int $moduloId, int $cargoId): bool {
         
         // Obtener cargo
         $stmtCargo = $pdo->prepare("
-            SELECT UPPER(TRIM(cargo_descripcion)) AS cargo_descripcion
-            FROM cargos
-            WHERE id_cargo = :cargo_id
+            SELECT descrip_cargo
+            FROM cargo
+            WHERE cargo_id = :cargo_id
             AND estado_cargo = 'ACTIVO'
             LIMIT 1
         ");
@@ -146,8 +146,8 @@ function validarCargoParaModulo(PDO $pdo, int $moduloId, int $cargoId): bool {
             return false;
         }
         
-        $moduloDesc = strtoupper(trim($modulo['modulo_descri']));
-        $cargoDesc = strtoupper(trim($cargo['cargo_descripcion']));
+        $moduloDesc = strtoupper(trim($modulo['modulo_nombre']));
+        $cargoDesc = strtoupper(trim($cargo['descrip_cargo']));
         
         // ADMIN solo está permitido si el módulo es ADMIN
         if ($cargoDesc === 'ADMIN') {

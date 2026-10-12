@@ -57,11 +57,11 @@ try {
     }
     
     $sql = "
-        SELECT id_cargo, cargo_descripcion
-        FROM cargos
-        WHERE id_cargo IN (" . implode(',', $placeholders) . ")
+        SELECT cargo_id, descrip_cargo
+        FROM cargo
+        WHERE cargo_id IN (" . implode(',', $placeholders) . ")
         AND estado_cargo = 'ACTIVO'
-        ORDER BY cargo_descripcion ASC
+        ORDER BY descrip_cargo ASC
     ";
     
     $stmt = $pdo->prepare($sql);

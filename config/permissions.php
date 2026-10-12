@@ -47,20 +47,20 @@ function obtenerNombreCargo(PDO $pdo, int $idCargo): string {
     
     try {
         $stmt = $pdo->prepare("
-            SELECT UPPER(TRIM(cargo_descripcion)) AS cargo_descripcion
-            FROM cargos
-            WHERE id_cargo = :id_cargo
+            SELECT descrip_cargo
+            FROM cargo
+            WHERE cargo_id = :cargo_id
             AND estado_cargo = 'ACTIVO'
             LIMIT 1
         ");
-        $stmt->execute([':id_cargo' => $idCargo]);
+        $stmt->execute([':cargo_id' => $idCargo]);
         $cargo = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if (!$cargo) {
             return '';
         }
         
-        $descripcion = trim($cargo['cargo_descripcion']);
+        $descripcion = trim($cargo['descrip_cargo']);
         
         // Mapear descripciones a constantes normalizadas
         $descripcionUpper = strtoupper($descripcion);

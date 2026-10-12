@@ -2,10 +2,10 @@
 
 // Configuración de la base de datos
 $host = 'localhost';
-$port = '5432'; // Puerto predeterminado de PostgreSQL
+$port = '5433'; // Puerto predeterminado de PostgreSQL
 $user = 'postgres'; // Cambia este valor por el usuario de PostgreSQL
-$pass = 'lucas456'; // Cambia este valor por la contraseña de PostgreSQL
-$database = 'taller_cuarto';
+$pass = 'admin'; // Cambia este valor por la contraseña de PostgreSQL
+$database = 'domipizzas';
 
 try {
     // Crear la conexión usando PDO

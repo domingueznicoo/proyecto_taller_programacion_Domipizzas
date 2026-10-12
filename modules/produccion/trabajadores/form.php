@@ -13,9 +13,9 @@ require_once PROJECT_ROOT . '/config/database.php';
 require_once PROJECT_ROOT . '/config/permissions.php';
 check_permission('REFERENCIALES');
 
-$isEdit = isset($_GET['form_trabajador']) && $_GET['form'] == 'edit' && isset($_GET['id']);
+$isEdit = isset($_GET['form_trabajador']) && ($_GET['form'] ?? '') == 'edit' && isset($_GET['id']);
 $trabajadorData = null;
-$turnosPermitidos = ['MAÑANA', 'TARDE', 'NOCHE', 'ROTATIVO'];
+
 
 try {
     $dsn = "pgsql:host=$host;port=$port;dbname=$database;";
@@ -45,56 +45,59 @@ if ($isEdit) {
 }
 
 $sqlPersonal = "
-    SELECT id_personal,
-           TRIM(personal_nombre || ' ' || personal_apellido) AS nombre_completo
+    SELECT personal_id,
+           personal_nombre, personal_apellido
     FROM personal
     WHERE UPPER(TRIM(personal_estado)) = 'ACTIVO'
 ";
 if ($isEdit) {
     $sqlPersonal .= " AND (
-        id_personal NOT IN (
-            SELECT id_personal FROM trabajadores
+        personal_id NOT IN (
+            SELECT personal_id FROM trabajadores
             WHERE UPPER(TRIM(trabajador_estado)) = 'ACTIVO'
               AND trabajadores_id <> :exclude_id
         )
-        OR id_personal = :current_personal
+        OR personal_id = :current_personal
     )";
     $stmtPersonal = $pdo->prepare($sqlPersonal . " ORDER BY personal_apellido, personal_nombre");
     $stmtPersonal->execute([
         ':exclude_id' => (int)$trabajadorData['trabajadores_id'],
-        ':current_personal' => (int)$trabajadorData['id_personal'],
+        ':current_personal' => (int)$trabajadorData['personal_id'],
     ]);
     $listaPersonal = $stmtPersonal->fetchAll();
 
-    $idsEnLista = array_column($listaPersonal, 'id_personal');
-    if (!in_array((int)$trabajadorData['id_personal'], array_map('intval', $idsEnLista), true)) {
+    $idsEnLista = array_column($listaPersonal, 'personal_id');
+    if (!in_array((int)$trabajadorData['personal_id'], array_map('intval', $idsEnLista), true)) {
         $qActual = $pdo->prepare("
-            SELECT id_personal,
-                   TRIM(personal_nombre || ' ' || personal_apellido) AS nombre_completo
-            FROM personal WHERE id_personal = :id
+            SELECT personal_id,
+                   personal_nombre, personal_apellido
+            FROM personal WHERE personal_id = :id
         ");
-        $qActual->execute([':id' => (int)$trabajadorData['id_personal']]);
+        $qActual->execute([':id' => (int)$trabajadorData['personal_id']]);
         $actual = $qActual->fetch();
         if ($actual) {
-            $actual['nombre_completo'] .= ' (INACTIVO)';
+            $actual['personal_apellido'] .= ' (INACTIVO)';
             array_unshift($listaPersonal, $actual);
         }
     }
 } else {
-    $sqlPersonal .= " AND id_personal NOT IN (
-        SELECT id_personal FROM trabajadores
+    $sqlPersonal .= " AND personal_id NOT IN (
+        SELECT personal_id FROM trabajadores
         WHERE UPPER(TRIM(trabajador_estado)) = 'ACTIVO'
     )";
     $stmtPersonal = $pdo->query($sqlPersonal . " ORDER BY personal_apellido, personal_nombre");
     $listaPersonal = $stmtPersonal->fetchAll();
 }
 
-$listaEtapas = $pdo->query("
-    SELECT etapa_id, etapa_descri
-    FROM etapa_produccion
-    WHERE UPPER(TRIM(etapa_estado)) = 'ACTIVA'
-    ORDER BY etapa_descri ASC
-")->fetchAll();
+$catalogos = [];
+foreach (['rol', 'turno'] as $tabla) {
+    $idActual = (int)($trabajadorData[$tabla . '_id'] ?? 0);
+    $consulta = $pdo->prepare("SELECT {$tabla}_id, {$tabla}_descripcion, {$tabla}_estado FROM {$tabla}
+        WHERE UPPER(TRIM({$tabla}_estado)) = 'ACTIVO' OR {$tabla}_id = :actual
+        ORDER BY {$tabla}_descripcion");
+    $consulta->execute([':actual' => $idActual]);
+    $catalogos[$tabla] = $consulta->fetchAll();
+}
 ?>
 
 <div class="container-fluid">
@@ -116,10 +119,8 @@ $listaEtapas = $pdo->query("
                 </div>
             <?php endif; ?>
 
-            <?php if (empty($listaEtapas)): ?>
-                <div class="alert alert-warning">
-                    No hay etapas de producción activas. Configure rutas en Etapas de producción antes de registrar trabajadores.
-                </div>
+            <?php if (empty($catalogos['rol']) || empty($catalogos['turno'])): ?>
+                <div class="alert alert-warning">Debe registrar roles y turnos activos antes de guardar trabajadores.</div>
             <?php endif; ?>
 
             <form action="proses.php?act=<?= $isEdit ? 'update' : 'insert' ?>" method="POST" id="formTrabajador">
@@ -130,15 +131,15 @@ $listaEtapas = $pdo->query("
                 <div class="row">
                     <div class="col-md-12">
                         <div class="form-group">
-                            <label for="id_personal">Personal <span class="text-danger">*</span></label>
-                            <select name="id_personal" id="id_personal" class="form-control" required <?= (empty($listaPersonal) && !$isEdit) ? 'disabled' : '' ?>>
+                            <label for="personal_id">Personal <span class="text-danger">*</span></label>
+                            <select name="personal_id" id="personal_id" class="form-control" required <?= (empty($listaPersonal) && !$isEdit) ? 'disabled' : '' ?>>
                                 <option value="">Seleccione el personal</option>
                                 <?php foreach ($listaPersonal as $p): ?>
                                     <?php
-                                    $selected = ($isEdit && (int)$trabajadorData['id_personal'] === (int)$p['id_personal']) ? 'selected' : '';
+                                    $selected = ($isEdit && (int)$trabajadorData['personal_id'] === (int)$p['personal_id']) ? 'selected' : '';
                                     ?>
-                                    <option value="<?= (int)$p['id_personal'] ?>" <?= $selected ?>>
-                                        <?= htmlspecialchars($p['nombre_completo']) ?>
+                                    <option value="<?= (int)$p['personal_id'] ?>" <?= $selected ?>>
+                                        <?= htmlspecialchars(trim($p['personal_nombre'] . ' ' . $p['personal_apellido'])) ?>
                                     </option>
                                 <?php endforeach; ?>
                             </select>
@@ -148,53 +149,31 @@ $listaEtapas = $pdo->query("
                 </div>
 
                 <div class="row">
+                    <?php foreach (['rol' => 'Rol', 'turno' => 'Turno'] as $tabla => $etiqueta): ?>
                     <div class="col-md-6">
                         <div class="form-group">
-                            <label for="trabajador_rol">Rol <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="trabajador_rol" name="trabajador_rol"
-                                   value="<?= $isEdit ? htmlspecialchars($trabajadorData['trabajador_rol'] ?? '') : '' ?>"
-                                   placeholder="Ej: Operario, Supervisor" required maxlength="50">
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="form-group">
-                            <label for="trabajador_turno">Turno <span class="text-danger">*</span></label>
-                            <select name="trabajador_turno" id="trabajador_turno" class="form-control" required>
-                                <option value="">Seleccione turno</option>
-                                <?php foreach ($turnosPermitidos as $turno): ?>
-                                    <?php
-                                    $sel = ($isEdit && ($trabajadorData['trabajador_turno'] ?? '') === $turno) ? 'selected' : '';
-                                    ?>
-                                    <option value="<?= $turno ?>" <?= $sel ?>><?= $turno ?></option>
+                            <label for="<?= $tabla ?>_id"><?= $etiqueta ?> <span class="text-danger">*</span></label>
+                            <select name="<?= $tabla ?>_id" id="<?= $tabla ?>_id" class="form-control" required>
+                                <option value="">Seleccione <?= strtolower($etiqueta) ?></option>
+                                <?php foreach ($catalogos[$tabla] as $opcion): ?>
+                                    <option value="<?= (int)$opcion[$tabla . '_id'] ?>"
+                                        <?= $isEdit && (int)$trabajadorData[$tabla . '_id'] === (int)$opcion[$tabla . '_id'] ? 'selected' : '' ?>>
+                                        <?= htmlspecialchars($opcion[$tabla . '_descripcion']) ?><?= strtoupper(trim($opcion[$tabla . '_estado'])) !== 'ACTIVO' ? ' (INACTIVO)' : '' ?>
+                                    </option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
                     </div>
+                    <?php endforeach; ?>
                 </div>
 
                 <div class="row">
                     <div class="col-md-6">
                         <div class="form-group">
-                            <label for="trabajador_costo_hora">Costo Hora (Gs.) <span class="text-danger">*</span></label>
-                            <input type="number" class="form-control" id="trabajador_costo_hora" name="trabajador_costo_hora"
-                                   value="<?= $isEdit ? htmlspecialchars($trabajadorData['trabajador_costo_hora'] ?? '0') : '0' ?>"
-                                   min="0" step="1" required>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="form-group">
-                            <label for="id_etapa">Etapa de Producción Predeterminada <span class="text-danger">*</span></label>
-                            <select name="id_etapa" id="id_etapa" class="form-control" required>
-                                <option value="">Seleccione etapa</option>
-                                <?php foreach ($listaEtapas as $etapa): ?>
-                                    <?php
-                                    $selEtapa = ($isEdit && (int)($trabajadorData['id_etapa'] ?? 0) === (int)$etapa['etapa_id']) ? 'selected' : '';
-                                    ?>
-                                    <option value="<?= (int)$etapa['etapa_id'] ?>" <?= $selEtapa ?>>
-                                        <?= htmlspecialchars($etapa['etapa_descri']) ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
+                            <label for="trabajador_costo_hora">Costo por hora (Gs.) <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control" name="trabajador_costo_hora" id="trabajador_costo_hora"
+                                   min="0" max="2147483647" step="1" required
+                                   value="<?= htmlspecialchars($trabajadorData['trabajador_costo_hora'] ?? '0') ?>">
                         </div>
                     </div>
                 </div>
@@ -214,7 +193,7 @@ $listaEtapas = $pdo->query("
                 <?php endif; ?>
 
                 <div class="form-group mt-4">
-                    <button type="submit" class="btn btn-primary" name="Guardar" <?= ((empty($listaPersonal) && !$isEdit) || empty($listaEtapas)) ? 'disabled' : '' ?>>
+                    <button type="submit" class="btn btn-primary" name="Guardar" <?= ((empty($listaPersonal) && !$isEdit) || empty($catalogos['rol']) || empty($catalogos['turno'])) ? 'disabled' : '' ?>>
                         <i class="fas fa-save"></i> Guardar
                     </button>
                     <a href="view.php" class="btn btn-secondary">

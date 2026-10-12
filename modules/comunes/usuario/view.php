@@ -58,24 +58,21 @@ try {
     // Ya validado por check_permission arriba
 
     $stmt = $pdo->query("
-        SELECT 
-            u.id_usuario,
+        SELECT
+            u.usuario_id,
             u.username,
-            COALESCE(p.personal_nombre, '') AS usu_nombre,
-            COALESCE(p.personal_apellido, '') AS usu_apellido,
-            COALESCE(p.personal_ci, '') AS usuario_ci,
-            COALESCE(p.personal_telefono, '') AS usuario_telefono,
-            COALESCE(u.estado_usuario, 'ACTIVO') AS estado_usuario,
-            COALESCE(s.descripcion_sucursal, '-') AS sucursal,
-            COALESCE(m.modulo_descri, '-') AS modulo,
-            COALESCE(c.cargo_descripcion, '-') AS cargo,
-            u.id_personal
-        FROM usuarios u
-        LEFT JOIN sucursales s ON s.id_sucursal = u.id_sucursal
+            p.personal_nombre,
+            p.personal_apellido,
+            p.personal_ci,
+            u.usuario_estado,
+            m.modulo_nombre,
+            c.descrip_cargo,
+            u.personal_id
+        FROM usuario u
         LEFT JOIN modulos m ON m.modulo_id = u.modulo_id
-        LEFT JOIN personal p ON p.id_personal = u.id_personal
-        LEFT JOIN cargos c ON c.id_cargo = COALESCE(u.id_cargo, p.id_cargo, 0)
-        ORDER BY u.id_usuario ASC
+        LEFT JOIN personal p ON p.personal_id = u.personal_id
+        LEFT JOIN cargo c ON c.cargo_id = u.cargo_id
+        ORDER BY u.usuario_id ASC
     ");
     $usuarios = $stmt->fetchAll();
 } catch (PDOException $e) {
@@ -129,7 +126,6 @@ include PROJECT_ROOT . '/header.php';
                             <th>Usuario</th>
                             <th>Cédula</th>
                             <th>Módulo</th>
-                            <th>Sucursal</th>
                             <th>Cargo</th>
                             <th>Estado</th>
                             <th>Acciones</th>
@@ -138,28 +134,27 @@ include PROJECT_ROOT . '/header.php';
                     <tbody>
                         <?php foreach ($usuarios as $usuario): ?>
                             <tr>
-                                <td><?php echo (int)$usuario['id_usuario']; ?></td>
-                                <td><?php echo htmlspecialchars($usuario['usu_nombre']); ?></td>
-                                <td><?php echo htmlspecialchars($usuario['usu_apellido']); ?></td>
+                                <td><?php echo (int)$usuario['usuario_id']; ?></td>
+                                <td><?php echo htmlspecialchars($usuario['personal_nombre'] ?? ''); ?></td>
+                                <td><?php echo htmlspecialchars($usuario['personal_apellido'] ?? ''); ?></td>
                                 <td><?php echo htmlspecialchars($usuario['username']); ?></td>
-                                <td><?php echo htmlspecialchars($usuario['usuario_ci']); ?></td>
-                                <td><?php echo htmlspecialchars($usuario['modulo']); ?></td>
-                                <td><?php echo htmlspecialchars($usuario['sucursal']); ?></td>
-                                <td><?php echo htmlspecialchars($usuario['cargo']); ?></td>
+                                <td><?php echo htmlspecialchars($usuario['personal_ci'] ?? ''); ?></td>
+                                <td><?php echo htmlspecialchars($usuario['modulo_nombre'] ?? '-'); ?></td>
+                                <td><?php echo htmlspecialchars($usuario['descrip_cargo'] ?? '-'); ?></td>
                                 <td>
-                                    <span class="badge badge-<?php echo $usuario['estado_usuario'] === 'ACTIVO' ? 'success' : 'secondary'; ?>">
-                                        <?php echo htmlspecialchars($usuario['estado_usuario']); ?>
+                                    <span class="badge badge-<?php echo $usuario['usuario_estado'] === 'ACTIVO' ? 'success' : 'secondary'; ?>">
+                                        <?php echo htmlspecialchars($usuario['usuario_estado']); ?>
                                     </span>
                                 </td>
                                 <td>
-                                    <a href="form.php?action=edit&id=<?php echo (int)$usuario['id_usuario']; ?>" class="btn btn-info btn-sm mb-1">
+                                    <a href="form.php?action=edit&id=<?php echo (int)$usuario['usuario_id']; ?>" class="btn btn-info btn-sm mb-1">
                                         <i class="fas fa-edit"></i>
                                     </a>
                                     <form class="d-inline confirm-toggle" action="proses.php?act=toggle" method="POST">
-                                        <input type="hidden" name="id_usuario" value="<?php echo (int)$usuario['id_usuario']; ?>">
-                                        <input type="hidden" name="estado" value="<?php echo $usuario['estado_usuario'] === 'ACTIVO' ? 'INACTIVO' : 'ACTIVO'; ?>">
-                                        <button type="submit" class="btn btn-<?php echo $usuario['estado_usuario'] === 'ACTIVO' ? 'warning' : 'success'; ?> btn-sm">
-                                            <?php echo $usuario['estado_usuario'] === 'ACTIVO' ? 'Inactivar' : 'Activar'; ?>
+                                        <input type="hidden" name="id_usuario" value="<?php echo (int)$usuario['usuario_id']; ?>">
+                                        <input type="hidden" name="estado" value="<?php echo $usuario['usuario_estado'] === 'ACTIVO' ? 'INACTIVO' : 'ACTIVO'; ?>">
+                                        <button type="submit" class="btn btn-<?php echo $usuario['usuario_estado'] === 'ACTIVO' ? 'warning' : 'success'; ?> btn-sm">
+                                            <?php echo $usuario['usuario_estado'] === 'ACTIVO' ? 'Inactivar' : 'Activar'; ?>
                                         </button>
                                     </form>
                                 </td>

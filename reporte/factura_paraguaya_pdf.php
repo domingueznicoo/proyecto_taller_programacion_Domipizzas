@@ -31,7 +31,7 @@ class FacturaParaguayaPDF extends FPDF
     public function __construct(array $empresa = [])
     {
         parent::__construct('P', 'mm', 'A4');
-        $this->empresaNombre = $empresa['nombre'] ?? 'Emmanuels';
+        $this->empresaNombre = $empresa['nombre'] ?? 'DomiPizzas';
         $this->empresaRuc    = $empresa['ruc']    ?? '';
         $this->empresaDir    = $empresa['dir']    ?? 'Ruta Departamental D027, San Lorenzo - Paraguay';
         $this->empresaTel    = $empresa['tel']    ?? '+595 972 957381';
@@ -47,7 +47,7 @@ class FacturaParaguayaPDF extends FPDF
         $this->Line(15, $this->GetY(), 195, $this->GetY());
         $this->SetFont('Arial', 'I', 7);
         $this->SetTextColor(...self::COLOR_MUTED);
-        $this->Cell(130, 5, fpy_convertir('Documento interno — Registro de compra en sistema Emmanuels'), 0, 0, 'L');
+        $this->Cell(130, 5, fpy_convertir('Documento interno — Registro de compra en sistema DomiPizzas'), 0, 0, 'L');
         $this->Cell(0, 5, fpy_convertir('Pág. ') . $this->PageNo() . '/{nb}', 0, 0, 'R');
     }
 

@@ -23,7 +23,7 @@ try {
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
     ]);
 
-    $query = $pdo->prepare("SELECT * FROM usuarios WHERE username = :username");
+    $query = $pdo->prepare("SELECT * FROM usuario WHERE username = :username");
     $query->bindParam(':username', $username, PDO::PARAM_STR);
     $query->execute();
     $auth_user = $query->fetch();
@@ -48,7 +48,7 @@ $extra_js_plugins = [
 
 include PROJECT_ROOT . '/header.php';
 
-$mostrarListado = !(isset($_GET['form_proveedor']) && ($_GET['form'] === 'add' || $_GET['form'] === 'edit'));
+$mostrarListado = !(isset($_GET['form_proveedor']) && (($_GET['form'] ?? '') === 'add' || ($_GET['form'] ?? '') === 'edit'));
 ?>
 
 <?php if ($mostrarListado): ?>
@@ -58,7 +58,7 @@ $mostrarListado = !(isset($_GET['form_proveedor']) && ($_GET['form'] === 'add' |
             <a href="?form_proveedor=add&form=add" class="btn btn-primary btn-sm shadow-sm">
                 <i class="fas fa-plus fa-sm text-white-50"></i> Nuevo Proveedor
             </a>
-            <button type="button" class="btn btn-warning btn-sm shadow-sm" data-toggle="modal" data-target="#modalReporte">
+            <button type="button" class="btn btn-warning btn-sm shadow-sm" data-toggle="modal" data-target="#modalReporte" title="Reporte">
                 <i class="fas fa-print fa-sm text-white-50"></i> Imprimir Reporte
             </button>
         </div>
@@ -120,28 +120,31 @@ $mostrarListado = !(isset($_GET['form_proveedor']) && ($_GET['form'] === 'add' |
                     <tbody>
                         <?php
                         try {
-                            $sql = "SELECT * FROM proveedor ORDER BY id_proveedor DESC";
+                            $sql = "SELECT * FROM proveedor ORDER BY prov_id DESC";
                             foreach ($pdo->query($sql) as $data) {
-                                $estado = strtoupper(trim($data['estado_proveedor'] ?? 'ACTIVO'));
+                                $estado = strtoupper(trim($data['prov_estado'] ?? 'ACTIVO'));
                                 if ($estado === 'ANULADO') {
                                     $estado = 'INACTIVO';
                                 }
                                 $estadoClass = ($estado === 'ACTIVO') ? 'badge-success' : 'badge-warning';
 
                                 echo "<tr>";
-                                echo "<td>" . htmlspecialchars($data['id_proveedor']) . "</td>";
-                                echo "<td>" . htmlspecialchars($data['razon_social']) . "</td>";
-                                echo "<td>" . htmlspecialchars($data['ruc_proveedor'] ?? '') . "</td>";
-                                echo "<td>" . htmlspecialchars($data['telefono_proveedor'] ?? '') . "</td>";
-                                echo "<td>" . htmlspecialchars($data['direccion_proveedor'] ?? '') . "</td>";
-                                echo "<td>" . htmlspecialchars($data['email_proveedor'] ?? '') . "</td>";
+                                echo "<td>" . htmlspecialchars($data['prov_id']) . "</td>";
+                                echo "<td>" . htmlspecialchars($data['prov_razon_social']) . "</td>";
+                                echo "<td>" . htmlspecialchars($data['prov_ruc'] ?? '') . "</td>";
+                                echo "<td>" . htmlspecialchars($data['prov_telefono'] ?? '') . "</td>";
+                                echo "<td>" . htmlspecialchars($data['prov_direccion'] ?? '') . "</td>";
+                                echo "<td>" . htmlspecialchars($data['prov_email'] ?? '') . "</td>";
                                 echo "<td><span class='badge {$estadoClass}'>" . htmlspecialchars($estado) . "</span></td>";
                                 echo "<td>";
-                                echo "<a href='?form_proveedor=edit&form=edit&id={$data['id_proveedor']}' class='btn btn-warning btn-sm' title='Editar'>";
+                                echo "<a href='?form_proveedor=edit&form=edit&id={$data['prov_id']}' class='btn btn-warning btn-sm' title='Editar'>";
                                 echo "<i class='fas fa-edit'></i></a> ";
                                 if ($estado === 'ACTIVO') {
-                                    echo "<button type='button' class='btn btn-danger btn-sm btn-inactivar' data-id='{$data['id_proveedor']}' data-descripcion='" . htmlspecialchars($data['razon_social'], ENT_QUOTES) . "' title='Inactivar'>";
+                                    echo "<button type='button' class='btn btn-danger btn-sm btn-inactivar' data-id='{$data['prov_id']}' data-descripcion='" . htmlspecialchars($data['prov_razon_social'], ENT_QUOTES) . "' title='Desactivar' aria-label='Desactivar'>";
                                     echo "<i class='fas fa-ban'></i></button>";
+                                } else {
+                                    echo "<button type='button' class='btn btn-success btn-sm btn-activar' data-id='{$data['prov_id']}' title='Activar' aria-label='Activar'>";
+                                    echo "<i class='fas fa-check'></i></button>";
                                 }
                                 echo "</td>";
                                 echo "</tr>";
@@ -227,6 +230,26 @@ $(document).ready(function() {
             "url": "<?= $BASE_PATH ?>vendor/datatables/Spanish.json"
         },
         "order": [[0, "desc"]]
+    });
+
+    $('#dataTable').on('click', '.btn-activar', function() {
+        if (!confirm('¿Desea activar nuevamente este proveedor?')) return;
+        var boton = $(this);
+        boton.prop('disabled', true);
+        $.ajax({
+            url: 'proses.php?act=activate',
+            type: 'POST',
+            data: { id: boton.data('id') },
+            dataType: 'json',
+            success: function(response) {
+                alert(response.message || 'No se pudo activar el proveedor.');
+                if (response.success) window.location.reload();
+            },
+            error: function() {
+                alert('No se pudo comunicar con el servidor.');
+            },
+            complete: function() { boton.prop('disabled', false); }
+        });
     });
 
     var proveedorIdActual = null;

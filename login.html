@@ -6,10 +6,10 @@
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <meta name="description" content="Sistema de Gestión Empresarial Emmanuels">
-    <meta name="author" content="Emmanuels">
+    <meta name="description" content="Sistema de Gestión Empresarial DomiPizzas">
+    <meta name="author" content="DomiPizzas">
 
-    <title>Emmanuels - Sistema de Gestión</title>
+    <title>DomiPizzas - Sistema de Gestión</title>
 
     <!-- Custom fonts for this template-->
     <link href="vendor/fontawesome-free/css/all.min.css" rel="stylesheet" type="text/css">
@@ -28,7 +28,7 @@
 
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+            background: #241713 url("img/fondo_pizza.png") center / cover no-repeat;
             min-height: 100vh;
             display: flex;
             align-items: center;
@@ -298,9 +298,9 @@
         <div class="login-card">
             <div class="login-header">
                 <div class="login-logo">
-                    <i class="fas fa-hamburger"></i>
+                    <i class="fas fa-pizza-slice sidebar-pizza-icon"></i>
                 </div>
-                <h1>Emmanuels</h1>
+                <h1>DomiPizzas</h1>
                 <p>Sistema de Gestión Empresarial</p>
             </div>
 
@@ -335,7 +335,7 @@
                     </div>
 
                     <div class="remember-me">
-                        <input type="checkbox" class="custom-control-input" id="customCheck">
+                        <input type="checkbox" class="custom-control-input" id="customCheck" name="remember_session" value="1">
                         <label class="custom-control-label" for="customCheck">Recordar sesión</label>
                     </div>
 
@@ -373,10 +373,17 @@
                         <i class="fas fa-info-circle" style="font-size: 48px; color: #dc2626; margin-bottom: 15px;"></i>
                     </div>
                     <p class="text-center" style="font-size: 16px; color: #4a5568; line-height: 1.6;">
-                        Para recuperar tu contraseña, por favor <strong>contacta al administrador del sistema</strong>.
+                        Ingresá tu nombre de usuario (username) para enviar una solicitud al administrador.
                     </p>
+                    <form id="recoveryForm" action="auth/recuperar_password.php" method="post">
+                        <label for="recoveryUsername">Nombre de usuario</label>
+                        <input class="form-control" type="text" id="recoveryUsername" name="username"
+                            placeholder="Ingresá tu username" autocomplete="username" maxlength="30" required>
+                        <button class="btn btn-primary mt-3" id="recoverySubmit" type="submit" disabled>Enviar solicitud</button>
+                    </form>
+                    <p id="recoveryStatus" role="status" aria-live="polite" class="mt-3"></p>
                     <p class="text-center" style="font-size: 14px; color: #718096; margin-top: 15px;">
-                        El administrador podrá ayudarte a restablecer tu acceso al sistema.
+                        También podés contactar al WhatsApp corporativo: <strong>0972 957385</strong>.
                     </p>
                 </div>
                 <div class="modal-footer" style="border-top: 1px solid #e2e8f0; padding: 20px 30px;">
@@ -398,6 +405,52 @@
     <!-- Custom scripts for all pages-->
     <script src="js/sb-admin-2.min.js"></script>
     <script>
+        const recoveryForm = document.getElementById('recoveryForm');
+        const recoverySubmit = document.getElementById('recoverySubmit');
+        const recoveryStatus = document.getElementById('recoveryStatus');
+        let recoveryCsrf = '';
+        fetch(recoveryForm.action, { cache: 'no-store' })
+            .then(response => {
+                if (!response.ok) throw new Error('No se pudo preparar la solicitud.');
+                return response.json();
+            })
+            .then(data => {
+                if (!data.csrf) throw new Error('No se pudo preparar la solicitud.');
+                recoveryCsrf = data.csrf;
+                recoverySubmit.disabled = false;
+            })
+            .catch(() => {
+                recoveryStatus.textContent = 'No se pudo cargar el formulario. Recargá la página o contactá al WhatsApp 0972 957385.';
+            });
+        recoveryForm.addEventListener('submit', async event => {
+            event.preventDefault();
+            if (!recoveryCsrf || recoverySubmit.disabled) return;
+            recoverySubmit.disabled = true;
+            recoveryStatus.textContent = 'Enviando solicitud…';
+            try {
+                const body = new FormData(recoveryForm);
+                body.set('csrf', recoveryCsrf);
+                const response = await fetch(recoveryForm.action, { method: 'POST', body });
+                const data = await response.json();
+                recoveryStatus.textContent = data.message;
+                if (response.ok) {
+                    recoveryForm.reset();
+                    $('#forgotPasswordModal').modal('hide');
+                    const toastContainer = document.getElementById('toast-container') || createToastContainer();
+                    const toast = document.createElement('div');
+                    toast.className = 'toast-message';
+                    toast.setAttribute('role', 'status');
+                    toast.textContent = data.message;
+                    toastContainer.appendChild(toast);
+                    setTimeout(() => toast.remove(), 4000);
+                }
+            } catch (error) {
+                recoveryStatus.textContent = 'No se pudo confirmar el envío. Contactá al WhatsApp 0972 957385.';
+            } finally {
+                recoverySubmit.disabled = false;
+            }
+        });
+
         window.onload = function() {
             // Revisa si hay un mensaje en la sesión (verifica si la variable de sesión está presente)
             fetch('auth/session_handler.php')

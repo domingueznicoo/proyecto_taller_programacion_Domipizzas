@@ -53,14 +53,14 @@ function validarInactivacionProveedor(PDO $pdo, int $idProveedor): array {
 
     $vinculos = [
         'presupuesto_compra' => 'presupuestos de compra',
-        'orden_de_compra' => 'órdenes de compra',
+        'orden_compra' => 'órdenes de compra',
         'nota_compra' => 'notas de crédito/débito de compra',
         'nota_remision_compra' => 'notas de remisión de compra',
         'cuentas_pagar' => 'cuentas a pagar / facturas de compra',
     ];
 
     foreach ($vinculos as $tabla => $descripcion) {
-        $q = $pdo->prepare("SELECT 1 FROM {$tabla} WHERE id_proveedor = :id LIMIT 1");
+        $q = $pdo->prepare("SELECT 1 FROM {$tabla} WHERE prov_id = :id LIMIT 1");
         $q->execute([':id' => $idProveedor]);
         if ($q->fetchColumn()) {
             $bloqueos[] = "Tiene registros en {$descripcion}.";
@@ -85,14 +85,14 @@ try {
         exit();
     }
 
-    $qUsuario = $pdo->prepare("SELECT id_usuario FROM usuarios WHERE username = :u LIMIT 1");
+    $qUsuario = $pdo->prepare("SELECT usuario_id FROM usuario WHERE username = :u LIMIT 1");
     $qUsuario->execute([':u' => $_SESSION['username']]);
     $usuario = $qUsuario->fetch();
 
     if (!$usuario) {
         throw new Exception("Usuario no encontrado");
     }
-    $idUsuario = (int)$usuario['id_usuario'];
+    $idUsuario = (int)$usuario['usuario_id'];
 
     if (!isset($_GET['act'])) {
         header("Location: view.php?alert=4");
@@ -100,6 +100,39 @@ try {
     }
 
     $action = $_GET['act'];
+
+    if ($action === 'activate' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+        header('Content-Type: application/json; charset=UTF-8');
+        if (ob_get_length()) { ob_clean(); }
+        $id = (int)($_POST['id'] ?? 0);
+        if ($id <= 0) {
+            echo json_encode(['success' => false, 'message' => 'ID inválido']);
+            exit;
+        }
+        try {
+            $pdo->beginTransaction();
+            $consulta = $pdo->prepare("SELECT prov_razon_social, prov_estado FROM proveedor WHERE prov_id = :id FOR UPDATE");
+            $consulta->execute([':id' => $id]);
+            $proveedor = $consulta->fetch();
+            if (!$proveedor) {
+                $pdo->rollBack();
+                echo json_encode(['success' => false, 'message' => 'Proveedor no encontrado']);
+                exit;
+            }
+            if (strtoupper(trim($proveedor['prov_estado'])) !== 'ACTIVO') {
+                $consulta = $pdo->prepare("UPDATE proveedor SET prov_estado = 'ACTIVO' WHERE prov_id = :id");
+                $consulta->execute([':id' => $id]);
+                bitacora($pdo, $idUsuario, 'MODIFICACION', "Proveedor reactivado (INACTIVO → ACTIVO): {$proveedor['prov_razon_social']} (ID: {$id})", $id);
+            }
+            $pdo->commit();
+            echo json_encode(['success' => true, 'message' => 'Proveedor activado correctamente.']);
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            error_log('Error activar proveedor: ' . $e->getMessage());
+            echo json_encode(['success' => false, 'message' => 'No se pudo activar el proveedor.']);
+        }
+        exit;
+    }
 
     if ($action === 'validate_delete' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         header('Content-Type: application/json; charset=UTF-8');
@@ -121,13 +154,13 @@ try {
     }
 
     if ($action === 'insert' && isset($_POST['Guardar'])) {
-        $razon_social = normalize_desc($_POST['razon_social'] ?? '');
-        $ruc = normalize_desc($_POST['ruc_proveedor'] ?? '');
-        $telefono = normalize_desc($_POST['telefono_proveedor'] ?? '');
-        $direccion = normalize_desc($_POST['direccion_proveedor'] ?? '');
-        $email = normalize_email($_POST['email_proveedor'] ?? '');
+        $prov_razon_social = normalize_desc($_POST['prov_razon_social'] ?? '');
+        $ruc = normalize_desc($_POST['prov_ruc'] ?? '');
+        $telefono = normalize_desc($_POST['prov_telefono'] ?? '');
+        $direccion = normalize_desc($_POST['prov_direccion'] ?? '');
+        $email = normalize_email($_POST['prov_email'] ?? '');
 
-        if (empty($razon_social)) {
+        if (empty($prov_razon_social)) {
             header("Location: view.php?alert=4&msg=" . urlencode("La razón social es obligatoria."));
             exit();
         }
@@ -148,14 +181,14 @@ try {
             exit();
         }
 
-        $stmt = $pdo->prepare("SELECT 1 FROM proveedor WHERE UPPER(razon_social) = UPPER(:rs) LIMIT 1");
-        $stmt->execute([':rs' => $razon_social]);
+        $stmt = $pdo->prepare("SELECT 1 FROM proveedor WHERE UPPER(prov_razon_social) = UPPER(:rs) LIMIT 1");
+        $stmt->execute([':rs' => $prov_razon_social]);
         if ($stmt->fetchColumn()) {
             header("Location: view.php?alert=5");
             exit();
         }
 
-        $stmt = $pdo->prepare("SELECT 1 FROM proveedor WHERE UPPER(ruc_proveedor) = UPPER(:ruc) LIMIT 1");
+        $stmt = $pdo->prepare("SELECT 1 FROM proveedor WHERE UPPER(prov_ruc) = UPPER(:ruc) LIMIT 1");
         $stmt->execute([':ruc' => $ruc]);
         if ($stmt->fetchColumn()) {
             header("Location: view.php?alert=5");
@@ -167,22 +200,22 @@ try {
 
             $q = $pdo->prepare("
                 INSERT INTO proveedor
-                    (estado_proveedor, razon_social, ruc_proveedor, telefono_proveedor, direccion_proveedor, email_proveedor, id_usuario)
+                    (prov_estado, prov_razon_social, prov_ruc, prov_telefono, prov_direccion, prov_email, usuario_id)
                 VALUES
                     ('ACTIVO', :rs, :ruc, :tel, :dir, :email, :id_usuario)
-                RETURNING id_proveedor
+                RETURNING prov_id
             ");
             $q->execute([
-                ':rs' => $razon_social,
+                ':rs' => $prov_razon_social,
                 ':ruc' => $ruc,
                 ':tel' => $telefono,
-                ':dir' => $direccion !== '' ? $direccion : null,
-                ':email' => $email !== '' ? $email : null,
+                ':dir' => $direccion,
+                ':email' => $email,
                 ':id_usuario' => $idUsuario,
             ]);
             $proveedorId = (int)$q->fetchColumn();
 
-            bitacora($pdo, $idUsuario, 'ALTA', "Proveedor creado: {$razon_social} (ID: {$proveedorId})", $proveedorId);
+            bitacora($pdo, $idUsuario, 'ALTA', "Proveedor creado: {$prov_razon_social} (ID: {$proveedorId})", $proveedorId);
 
             $pdo->commit();
             header("Location: view.php?alert=1");
@@ -196,19 +229,19 @@ try {
     }
 
     if ($action === 'update' && isset($_POST['Guardar'])) {
-        $id_proveedor = isset($_POST['id_proveedor']) ? (int)$_POST['id_proveedor'] : 0;
-        $razon_social = normalize_desc($_POST['razon_social'] ?? '');
-        $ruc = normalize_desc($_POST['ruc_proveedor'] ?? '');
-        $telefono = normalize_desc($_POST['telefono_proveedor'] ?? '');
-        $direccion = normalize_desc($_POST['direccion_proveedor'] ?? '');
-        $email = normalize_email($_POST['email_proveedor'] ?? '');
-        $estado = normalizarEstadoProveedor($_POST['estado_proveedor'] ?? 'ACTIVO');
+        $prov_id = isset($_POST['prov_id']) ? (int)$_POST['prov_id'] : 0;
+        $prov_razon_social = normalize_desc($_POST['prov_razon_social'] ?? '');
+        $ruc = normalize_desc($_POST['prov_ruc'] ?? '');
+        $telefono = normalize_desc($_POST['prov_telefono'] ?? '');
+        $direccion = normalize_desc($_POST['prov_direccion'] ?? '');
+        $email = normalize_email($_POST['prov_email'] ?? '');
+        $estado = normalizarEstadoProveedor($_POST['prov_estado'] ?? 'ACTIVO');
 
-        if ($id_proveedor <= 0) {
+        if ($prov_id <= 0) {
             header("Location: view.php?alert=4&msg=" . urlencode("ID de proveedor inválido."));
             exit();
         }
-        if (empty($razon_social) || empty($ruc) || empty($telefono)) {
+        if (empty($prov_razon_social) || empty($ruc) || empty($telefono)) {
             header("Location: view.php?alert=4&msg=" . urlencode("Razón social, RUC y teléfono son obligatorios."));
             exit();
         }
@@ -222,12 +255,12 @@ try {
         }
 
         $checks = [
-            ['sql' => "SELECT 1 FROM proveedor WHERE UPPER(razon_social)=UPPER(:v) AND id_proveedor <> :id LIMIT 1", 'param' => $razon_social],
-            ['sql' => "SELECT 1 FROM proveedor WHERE UPPER(ruc_proveedor)=UPPER(:v) AND id_proveedor <> :id LIMIT 1", 'param' => $ruc],
+            ['sql' => "SELECT 1 FROM proveedor WHERE UPPER(prov_razon_social)=UPPER(:v) AND prov_id <> :id LIMIT 1", 'param' => $prov_razon_social],
+            ['sql' => "SELECT 1 FROM proveedor WHERE UPPER(prov_ruc)=UPPER(:v) AND prov_id <> :id LIMIT 1", 'param' => $ruc],
         ];
         foreach ($checks as $check) {
             $stmt = $pdo->prepare($check['sql']);
-            $stmt->execute([':v' => $check['param'], ':id' => $id_proveedor]);
+            $stmt->execute([':v' => $check['param'], ':id' => $prov_id]);
             if ($stmt->fetchColumn()) {
                 header("Location: view.php?alert=5");
                 exit();
@@ -239,25 +272,25 @@ try {
 
             $q = $pdo->prepare("
                 UPDATE proveedor
-                SET razon_social = :rs,
-                    ruc_proveedor = :ruc,
-                    telefono_proveedor = :tel,
-                    direccion_proveedor = :dir,
-                    email_proveedor = :email,
-                    estado_proveedor = :estado
-                WHERE id_proveedor = :id
+                SET prov_razon_social = :rs,
+                    prov_ruc = :ruc,
+                    prov_telefono = :tel,
+                    prov_direccion = :dir,
+                    prov_email = :email,
+                    prov_estado = :estado
+                WHERE prov_id = :id
             ");
             $q->execute([
-                ':rs' => $razon_social,
+                ':rs' => $prov_razon_social,
                 ':ruc' => $ruc,
                 ':tel' => $telefono,
-                ':dir' => $direccion !== '' ? $direccion : null,
-                ':email' => $email !== '' ? $email : null,
+                ':dir' => $direccion,
+                ':email' => $email,
                 ':estado' => $estado,
-                ':id' => $id_proveedor,
+                ':id' => $prov_id,
             ]);
 
-            bitacora($pdo, $idUsuario, 'MODIFICACION', "Proveedor actualizado: {$razon_social} (ID: {$id_proveedor})", $id_proveedor);
+            bitacora($pdo, $idUsuario, 'MODIFICACION', "Proveedor actualizado: {$prov_razon_social} (ID: {$prov_id})", $prov_id);
 
             $pdo->commit();
             header("Location: view.php?alert=2");
@@ -274,10 +307,10 @@ try {
         header('Content-Type: application/json; charset=UTF-8');
         if (ob_get_length()) { ob_clean(); }
 
-        $id_proveedor = isset($_POST['id']) ? (int)$_POST['id'] : 0;
+        $prov_id = isset($_POST['id']) ? (int)$_POST['id'] : 0;
         $force = isset($_POST['force']) && (int)$_POST['force'] === 1;
 
-        if ($id_proveedor <= 0) {
+        if ($prov_id <= 0) {
             echo json_encode(['success' => false, 'message' => 'ID inválido']);
             exit;
         }
@@ -285,8 +318,8 @@ try {
         try {
             $pdo->beginTransaction();
 
-            $qProv = $pdo->prepare("SELECT razon_social, estado_proveedor FROM proveedor WHERE id_proveedor = :id LIMIT 1");
-            $qProv->execute([':id' => $id_proveedor]);
+            $qProv = $pdo->prepare("SELECT prov_razon_social, prov_estado FROM proveedor WHERE prov_id = :id LIMIT 1");
+            $qProv->execute([':id' => $prov_id]);
             $prov = $qProv->fetch();
 
             if (!$prov) {
@@ -295,7 +328,7 @@ try {
                 exit;
             }
 
-            $estadoActual = normalizarEstadoProveedor($prov['estado_proveedor'] ?? 'ACTIVO');
+            $estadoActual = normalizarEstadoProveedor($prov['prov_estado'] ?? 'ACTIVO');
             if ($estadoActual !== 'ACTIVO') {
                 $pdo->commit();
                 echo json_encode([
@@ -306,7 +339,7 @@ try {
                 exit;
             }
 
-            $validacion = validarInactivacionProveedor($pdo, $id_proveedor);
+            $validacion = validarInactivacionProveedor($pdo, $prov_id);
             if (!$validacion['puede'] && !$force) {
                 $pdo->rollBack();
                 echo json_encode([
@@ -318,14 +351,14 @@ try {
                 exit;
             }
 
-            $qUpdate = $pdo->prepare("UPDATE proveedor SET estado_proveedor = 'INACTIVO' WHERE id_proveedor = :id");
-            $qUpdate->execute([':id' => $id_proveedor]);
+            $qUpdate = $pdo->prepare("UPDATE proveedor SET prov_estado = 'INACTIVO' WHERE prov_id = :id");
+            $qUpdate->execute([':id' => $prov_id]);
 
-            $descBitacora = "Proveedor #{$id_proveedor} ({$prov['razon_social']}) inactivado";
+            $descBitacora = "Proveedor #{$prov_id} ({$prov['prov_razon_social']}) inactivado";
             if (!$validacion['puede']) {
                 $descBitacora .= ' (con vínculos: ' . implode(' ', $validacion['bloqueos']) . ')';
             }
-            bitacora($pdo, $idUsuario, 'INACTIVACION', $descBitacora, $id_proveedor);
+            bitacora($pdo, $idUsuario, 'INACTIVACION', $descBitacora, $prov_id);
 
             $pdo->commit();
             echo json_encode([

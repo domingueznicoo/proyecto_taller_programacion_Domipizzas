@@ -6,7 +6,7 @@ require_once PROJECT_ROOT . '/config/database.php';
 require_once PROJECT_ROOT . '/config/permissions.php';
 check_permission('REFERENCIALES');
 
-const TURNOS_PERMITIDOS = ['MAÑANA', 'TARDE', 'NOCHE', 'ROTATIVO'];
+
 
 function bitacora(PDO $pdo, int $idUsuario, string $accion, string $desc, ?int $id = null): void {
     $pdo->exec("SAVEPOINT sp_bit");
@@ -20,6 +20,7 @@ function bitacora(PDO $pdo, int $idUsuario, string $accion, string $desc, ?int $
     } catch (Throwable $e) {
         $pdo->exec("ROLLBACK TO SAVEPOINT sp_bit");
         error_log("Bitácora falló: " . $e->getMessage());
+        throw $e;
     }
 }
 
@@ -41,8 +42,8 @@ function validarInactivacionTrabajador(PDO $pdo, int $trabajadorId): array {
     $bloqueos = [];
 
     $vinculos = [
-        'equipo_detalle' => 'equipos de trabajo por etapa',
-        'costo_detalle_produccion' => 'costos de producción (mano de obra)',
+        'equipos_detalle' => 'equipos de trabajo por etapa',
+        'inspectores' => 'inspectores de producción',
     ];
 
     foreach ($vinculos as $tabla => $descripcion) {
@@ -62,7 +63,7 @@ function validarInactivacionTrabajador(PDO $pdo, int $trabajadorId): array {
 function validarPersonalActivo(PDO $pdo, int $idPersonal): bool {
     $q = $pdo->prepare("
         SELECT 1 FROM personal
-        WHERE id_personal = :id AND UPPER(TRIM(personal_estado)) = 'ACTIVO'
+        WHERE personal_id = :id AND UPPER(TRIM(personal_estado)) = 'ACTIVO'
         LIMIT 1
     ");
     $q->execute([':id' => $idPersonal]);
@@ -76,7 +77,7 @@ function validarPersonalParaTrabajador(PDO $pdo, int $idPersonal, int $trabajado
     if ($trabajadorId > 0) {
         $q = $pdo->prepare("
             SELECT 1 FROM trabajadores
-            WHERE trabajadores_id = :id AND id_personal = :personal
+            WHERE trabajadores_id = :id AND personal_id = :personal
             LIMIT 1
         ");
         $q->execute([':id' => $trabajadorId, ':personal' => $idPersonal]);
@@ -85,20 +86,19 @@ function validarPersonalParaTrabajador(PDO $pdo, int $idPersonal, int $trabajado
     return false;
 }
 
-function validarEtapaActiva(PDO $pdo, int $idEtapa): bool {
-    $q = $pdo->prepare("
-        SELECT 1 FROM etapa_produccion
-        WHERE etapa_id = :id AND UPPER(TRIM(etapa_estado)) = 'ACTIVA'
-        LIMIT 1
-    ");
-    $q->execute([':id' => $idEtapa]);
+function validarCatalogosTrabajador(PDO $pdo, int $rolId, int $turnoId): bool {
+    $q = $pdo->prepare("SELECT 1 FROM rol WHERE rol_id = :id AND UPPER(TRIM(rol_estado)) = 'ACTIVO'");
+    $q->execute([':id' => $rolId]);
+    if (!$q->fetchColumn()) return false;
+    $q = $pdo->prepare("SELECT 1 FROM turno WHERE turno_id = :id AND UPPER(TRIM(turno_estado)) = 'ACTIVO'");
+    $q->execute([':id' => $turnoId]);
     return (bool)$q->fetchColumn();
 }
 
 function personalYaAsignado(PDO $pdo, int $idPersonal, int $excludeId = 0): bool {
     $sql = "
         SELECT 1 FROM trabajadores
-        WHERE id_personal = :personal
+        WHERE personal_id = :personal
           AND UPPER(TRIM(trabajador_estado)) = 'ACTIVO'
     ";
     $params = [':personal' => $idPersonal];
@@ -113,35 +113,18 @@ function personalYaAsignado(PDO $pdo, int $idPersonal, int $excludeId = 0): bool
 }
 
 function validarCamposTrabajador(array $post, bool $isUpdate = false): array {
-    $idPersonal = isset($post['id_personal']) ? (int)$post['id_personal'] : 0;
-    $rol = normalize_text($post['trabajador_rol'] ?? '');
-    $turno = normalize_text($post['trabajador_turno'] ?? '');
-    $costo = isset($post['trabajador_costo_hora']) ? (float)$post['trabajador_costo_hora'] : -1;
-    $idEtapa = isset($post['id_etapa']) ? (int)$post['id_etapa'] : 0;
-
-    if ($idPersonal <= 0) {
-        return ['ok' => false, 'msg' => 'Debe seleccionar el personal.'];
+    $costo = trim((string)($post['trabajador_costo_hora'] ?? ''));
+    if (!preg_match('/^\d{1,10}$/D', $costo) || (float)$costo > 2147483647) {
+        return ['ok' => false, 'msg' => 'Ingrese un costo por hora entero entre 0 y 2147483647, sin decimales.'];
     }
-    if ($rol === '') {
-        return ['ok' => false, 'msg' => 'El rol es obligatorio.'];
+    $personalId = (int)($post['personal_id'] ?? 0);
+    $rolId = (int)($post['rol_id'] ?? 0);
+    $turnoId = (int)($post['turno_id'] ?? 0);
+    if ($personalId <= 0 || $rolId <= 0 || $turnoId <= 0) {
+        return ['ok' => false, 'msg' => 'Seleccione personal, rol y turno.'];
     }
-    if ($turno === '' || !in_array($turno, TURNOS_PERMITIDOS, true)) {
-        return ['ok' => false, 'msg' => 'Debe seleccionar un turno válido.'];
-    }
-    if ($costo < 0) {
-        return ['ok' => false, 'msg' => 'El costo hora debe ser mayor o igual a cero.'];
-    }
-    if ($idEtapa <= 0) {
-        return ['ok' => false, 'msg' => 'Debe seleccionar la etapa de producción predeterminada.'];
-    }
-
     return [
-        'ok' => true,
-        'id_personal' => $idPersonal,
-        'rol' => $rol,
-        'turno' => $turno,
-        'costo' => $costo,
-        'id_etapa' => $idEtapa,
+        'ok' => true, 'trabajador_costo_hora' => $costo, 'personal_id' => $personalId, 'rol_id' => $rolId, 'turno_id' => $turnoId,
         'estado' => $isUpdate ? normalizarEstadoTrabajador($post['trabajador_estado'] ?? 'ACTIVO') : 'ACTIVO',
     ];
 }
@@ -158,14 +141,14 @@ try {
         exit();
     }
 
-    $qUsuario = $pdo->prepare("SELECT id_usuario FROM usuarios WHERE username = :u LIMIT 1");
+    $qUsuario = $pdo->prepare("SELECT usuario_id FROM usuario WHERE username = :u LIMIT 1");
     $qUsuario->execute([':u' => $_SESSION['username']]);
     $usuario = $qUsuario->fetch();
 
     if (!$usuario) {
         throw new Exception("Usuario no encontrado");
     }
-    $idUsuario = (int)$usuario['id_usuario'];
+    $idUsuario = (int)$usuario['usuario_id'];
 
     if (!isset($_GET['act'])) {
         header("Location: view.php?alert=4");
@@ -173,6 +156,36 @@ try {
     }
 
     $action = $_GET['act'];
+
+    if ($action === 'activate' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+        header('Content-Type: application/json; charset=UTF-8');
+        $id = (int)($_POST['id'] ?? 0);
+        try {
+            if ($id <= 0) throw new Exception('ID inválido.');
+            $pdo->beginTransaction();
+            $q = $pdo->prepare("SELECT * FROM trabajadores WHERE trabajadores_id = :id FOR UPDATE");
+            $q->execute([':id' => $id]);
+            $trabajador = $q->fetch();
+            if (!$trabajador) throw new Exception('Trabajador no encontrado.');
+            if (normalizarEstadoTrabajador($trabajador['trabajador_estado']) !== 'ACTIVO') {
+                if (!validarPersonalActivo($pdo, (int)$trabajador['personal_id']) ||
+                    personalYaAsignado($pdo, (int)$trabajador['personal_id'], $id) ||
+                    !validarCatalogosTrabajador($pdo, (int)$trabajador['rol_id'], (int)$trabajador['turno_id'])) {
+                    throw new Exception('Revise que el personal, rol y turno estén activos y que el personal no esté asignado a otro trabajador activo.');
+                }
+                $q = $pdo->prepare("UPDATE trabajadores SET trabajador_estado = 'ACTIVO' WHERE trabajadores_id = :id");
+                $q->execute([':id' => $id]);
+                bitacora($pdo, $idUsuario, 'MODIFICACION', "Trabajador #{$id} reactivado (INACTIVO → ACTIVO)", $id);
+            }
+            $pdo->commit();
+            echo json_encode(['success' => true, 'message' => 'Trabajador activado correctamente.']);
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            error_log('Error activar trabajador: ' . $e->getMessage());
+            echo json_encode(['success' => false, 'message' => $e instanceof PDOException ? 'No se pudo activar el trabajador.' : $e->getMessage()]);
+        }
+        exit;
+    }
 
     if ($action === 'validate_delete' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         header('Content-Type: application/json; charset=UTF-8');
@@ -200,16 +213,16 @@ try {
             exit();
         }
 
-        if (!validarPersonalActivo($pdo, $campos['id_personal'])) {
+        if (!validarPersonalActivo($pdo, $campos['personal_id'])) {
             header("Location: view.php?alert=4&msg=" . urlencode("El personal seleccionado no existe o no está activo."));
             exit();
         }
-        if (personalYaAsignado($pdo, $campos['id_personal'])) {
+        if (personalYaAsignado($pdo, $campos['personal_id'])) {
             header("Location: view.php?alert=5");
             exit();
         }
-        if (!validarEtapaActiva($pdo, $campos['id_etapa'])) {
-            header("Location: view.php?alert=4&msg=" . urlencode("La etapa seleccionada no es válida o no está activa."));
+        if (!validarCatalogosTrabajador($pdo, $campos['rol_id'], $campos['turno_id'])) {
+            header("Location: view.php?alert=4&msg=" . urlencode("El rol o turno seleccionado no existe o no está activo."));
             exit();
         }
 
@@ -218,27 +231,27 @@ try {
 
             $q = $pdo->prepare("
                 INSERT INTO trabajadores
-                    (id_usuario, id_personal, trabajador_estado, trabajador_rol, trabajador_turno, trabajador_costo_hora, id_etapa)
+                    (usuario_id, personal_id, trabajador_estado, rol_id, turno_id, trabajador_costo_hora)
                 VALUES
-                    (:uid, :personal, 'ACTIVO', :rol, :turno, :costo, :etapa)
+                    (:uid, :personal, 'ACTIVO', :rol, :turno, :costo)
                 RETURNING trabajadores_id
             ");
             $q->execute([
                 ':uid' => $idUsuario,
-                ':personal' => $campos['id_personal'],
-                ':rol' => $campos['rol'],
-                ':turno' => $campos['turno'],
-                ':costo' => $campos['costo'],
-                ':etapa' => $campos['id_etapa'],
+                ':personal' => $campos['personal_id'],
+                ':rol' => $campos['rol_id'],
+                ':turno' => $campos['turno_id'],
+                ':costo' => $campos['trabajador_costo_hora'],
             ]);
             $trabajadorId = (int)$q->fetchColumn();
 
             $qNombre = $pdo->prepare("
-                SELECT TRIM(personal_nombre || ' ' || personal_apellido) AS nombre
-                FROM personal WHERE id_personal = :id
+                SELECT personal_nombre, personal_apellido
+                FROM personal WHERE personal_id = :id
             ");
-            $qNombre->execute([':id' => $campos['id_personal']]);
-            $nombre = $qNombre->fetchColumn() ?: "Personal #{$campos['id_personal']}";
+            $qNombre->execute([':id' => $campos['personal_id']]);
+            $personal = $qNombre->fetch();
+            $nombre = trim(($personal['personal_nombre'] ?? '') . ' ' . ($personal['personal_apellido'] ?? ''));
 
             bitacora($pdo, $idUsuario, 'ALTA', "Trabajador creado: {$nombre} (ID: {$trabajadorId})", $trabajadorId);
 
@@ -266,16 +279,16 @@ try {
             exit();
         }
 
-        if (!validarPersonalParaTrabajador($pdo, $campos['id_personal'], $trabajadorId)) {
+        if (!validarPersonalParaTrabajador($pdo, $campos['personal_id'], $trabajadorId)) {
             header("Location: view.php?alert=4&msg=" . urlencode("El personal seleccionado no es válido o no está activo."));
             exit();
         }
-        if ($campos['estado'] === 'ACTIVO' && personalYaAsignado($pdo, $campos['id_personal'], $trabajadorId)) {
+        if ($campos['estado'] === 'ACTIVO' && personalYaAsignado($pdo, $campos['personal_id'], $trabajadorId)) {
             header("Location: view.php?alert=5");
             exit();
         }
-        if (!validarEtapaActiva($pdo, $campos['id_etapa'])) {
-            header("Location: view.php?alert=4&msg=" . urlencode("La etapa seleccionada no es válida o no está activa."));
+        if (!validarCatalogosTrabajador($pdo, $campos['rol_id'], $campos['turno_id'])) {
+            header("Location: view.php?alert=4&msg=" . urlencode("El rol o turno seleccionado no existe o no está activo."));
             exit();
         }
 
@@ -284,30 +297,29 @@ try {
 
             $q = $pdo->prepare("
                 UPDATE trabajadores
-                SET id_personal = :personal,
-                    trabajador_rol = :rol,
-                    trabajador_turno = :turno,
+                SET personal_id = :personal,
+                    rol_id = :rol,
+                    turno_id = :turno,
                     trabajador_costo_hora = :costo,
-                    id_etapa = :etapa,
                     trabajador_estado = :estado
                 WHERE trabajadores_id = :id
             ");
             $q->execute([
-                ':personal' => $campos['id_personal'],
-                ':rol' => $campos['rol'],
-                ':turno' => $campos['turno'],
-                ':costo' => $campos['costo'],
-                ':etapa' => $campos['id_etapa'],
+                ':personal' => $campos['personal_id'],
+                ':rol' => $campos['rol_id'],
+                ':turno' => $campos['turno_id'],
+                ':costo' => $campos['trabajador_costo_hora'],
                 ':estado' => $campos['estado'],
                 ':id' => $trabajadorId,
             ]);
 
             $qNombre = $pdo->prepare("
-                SELECT TRIM(personal_nombre || ' ' || personal_apellido) AS nombre
-                FROM personal WHERE id_personal = :id
+                SELECT personal_nombre, personal_apellido
+                FROM personal WHERE personal_id = :id
             ");
-            $qNombre->execute([':id' => $campos['id_personal']]);
-            $nombre = $qNombre->fetchColumn() ?: "Personal #{$campos['id_personal']}";
+            $qNombre->execute([':id' => $campos['personal_id']]);
+            $personal = $qNombre->fetch();
+            $nombre = trim(($personal['personal_nombre'] ?? '') . ' ' . ($personal['personal_apellido'] ?? ''));
 
             bitacora($pdo, $idUsuario, 'MODIFICACION', "Trabajador actualizado: {$nombre} (ID: {$trabajadorId})", $trabajadorId);
 
@@ -338,11 +350,11 @@ try {
             $pdo->beginTransaction();
 
             $qTrab = $pdo->prepare("
-                SELECT t.trabajador_estado,
-                       TRIM(p.personal_nombre || ' ' || p.personal_apellido) AS nombre
-                FROM trabajadores t
-                JOIN personal p ON p.id_personal = t.id_personal
-                WHERE t.trabajadores_id = :id
+                SELECT trabajadores.trabajador_estado,
+                       personal.personal_nombre, personal.personal_apellido
+                FROM trabajadores
+                JOIN personal ON personal.personal_id = trabajadores.personal_id
+                WHERE trabajadores.trabajadores_id = :id
                 LIMIT 1
             ");
             $qTrab->execute([':id' => $trabajadorId]);
@@ -380,7 +392,7 @@ try {
             $qUpdate = $pdo->prepare("UPDATE trabajadores SET trabajador_estado = 'INACTIVO' WHERE trabajadores_id = :id");
             $qUpdate->execute([':id' => $trabajadorId]);
 
-            $descBitacora = "Trabajador #{$trabajadorId} ({$trab['nombre']}) inactivado";
+            $descBitacora = "Trabajador #{$trabajadorId} ({$trab['personal_nombre']} {$trab['personal_apellido']}) inactivado";
             if (!$validacion['puede']) {
                 $descBitacora .= ' (con vínculos: ' . implode(' ', $validacion['bloqueos']) . ')';
             }

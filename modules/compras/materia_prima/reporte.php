@@ -2,7 +2,7 @@
 // Genera informe PDF de materias primas.
 require_once __DIR__ . '/../../../config/bootstrap.php';
 require_once PROJECT_ROOT . '/config/database.php';
-require_once PROJECT_ROOT . '/reporte/pedido_ventas.php';
+require_once PROJECT_ROOT . '/reporte/base_pdf.php';
 
 function convertir($text) {
     return mb_strtoupper($text, 'UTF-8');
@@ -14,18 +14,28 @@ try {
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
     $filtro_estado = isset($_GET['estado']) && $_GET['estado'] !== '' ? $_GET['estado'] : null;
-    $filtro_iva = isset($_GET['iva_id']) && $_GET['iva_id'] !== '' ? (int)$_GET['iva_id'] : null;
+    $filtro_iva = isset($_GET['tipo_iva_id']) && $_GET['tipo_iva_id'] !== '' ? (int)$_GET['tipo_iva_id'] : null;
 
     $where = [];
     $params = [];
 
     if ($filtro_estado) {
-        $where[] = "mp.materia_prima_estado = :estado";
+        $where[] = "mp.mp_estado = :estado";
         $params[':estado'] = $filtro_estado;
     }
     if ($filtro_iva) {
-        $where[] = "mp.iva_id = :iva_id";
-        $params[':iva_id'] = $filtro_iva;
+        $where[] = "mp.tipo_iva_id = :tipo_iva_id";
+        $params[':tipo_iva_id'] = $filtro_iva;
+    }
+
+    if (isset($_GET['mp_id'])) {
+        $mpId = filter_var($_GET['mp_id'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        if ($mpId === false) {
+            http_response_code(400);
+            exit('Código de materia prima inválido.');
+        }
+        $where[] = 'mp.mp_id = :mp_id';
+        $params[':mp_id'] = $mpId;
     }
 
     $whereClause = !empty($where) ? 'WHERE ' . implode(' AND ', $where) : '';
@@ -38,40 +48,30 @@ try {
         $subtitulo .= ' | IVA ID: ' . $filtro_iva;
     }
 
-    $pdf = new BasePDF('P', 'mm', 'A4', [
+    $pdf = new BasePDF('L', 'mm', 'A4', [
         'titulo'    => 'Reporte de Materias Primas',
         'subtitulo' => $subtitulo,
     ]);
     $pdf->AliasNbPages();
     $pdf->AddPage();
 
-    $anchos = [15, 55, 25, 25, 35, 20, 15];
-    $aligns = ['C', 'L', 'C', 'C', 'L', 'R', 'C'];
-    $pdf->tablaEncabezado($anchos, ['Cód.', 'Descripción', 'Unidad', 'IVA', 'Depósito', 'Stock', 'Estado'], $aligns);
+    $anchos = [12, 50, 25, 20, 40, 30, 30, 25, 25];
+    $aligns = ['C', 'L', 'C', 'C', 'L', 'L', 'R', 'R', 'C'];
+    $pdf->tablaEncabezado($anchos, ['Cód.', 'Descripción', 'Unidad', 'IVA', 'Depósito', 'Marca', 'Precio ref.', 'Stock', 'Estado'], $aligns);
 
     $sql = "
-        SELECT
-            mp.id_materia_prima,
-            mp.materia_prima_descripcion,
-            mp.materia_prima_estado,
-            um.unidad_descri,
-            COALESCE(ti.iva_descri, 'Sin IVA') AS iva_descri,
-            COALESCE(d.deposito_descri, 'Sin depósito') AS deposito_descri,
-            COALESCE(SUM(smp.cantidad_existente), 0) AS stock_total
+        SELECT mp.mp_id, mp.mp_descripcion, mp.mp_estado,
+               um.unidad_medida_nombre, ti.tipo_iva_nombre, d.deposito_nombre,
+               m.marca_descrip, mp.mp_precio_referencia,
+               COALESCE((SELECT SUM(stock_cantidad) FROM stock_materia_prima
+                         WHERE mp_id = mp.mp_id), 0) AS stock_total
         FROM materia_prima mp
-        LEFT JOIN unidad_medida um ON mp.id_unidad = um.id_unidad
-        LEFT JOIN tipo_iva ti ON mp.iva_id = ti.iva_id
-        LEFT JOIN stock_materia_prima smp ON smp.id_materia_prima = mp.id_materia_prima
-        LEFT JOIN deposito d ON d.deposito_id = (
-            SELECT deposito_id FROM stock_materia_prima
-            WHERE id_materia_prima = mp.id_materia_prima
-            ORDER BY cantidad_existente DESC
-            LIMIT 1
-        )
+        LEFT JOIN unidad_medida um ON mp.unidad_medida_id = um.unidad_medida_id
+        LEFT JOIN tipo_iva ti ON mp.tipo_iva_id = ti.tipo_iva_id
+        LEFT JOIN deposito d ON d.deposito_id = mp.deposito_id
+        LEFT JOIN marca m ON m.marca_id = mp.marca_id
         {$whereClause}
-        GROUP BY mp.id_materia_prima, mp.materia_prima_descripcion, mp.materia_prima_estado,
-                 um.unidad_descri, ti.iva_descri, d.deposito_descri
-        ORDER BY mp.id_materia_prima DESC
+        ORDER BY mp.mp_id DESC
     ";
 
     $query = $pdo->prepare($sql);
@@ -83,17 +83,19 @@ try {
 
     while ($data = $query->fetch(PDO::FETCH_ASSOC)) {
         $pdf->tablaFila($anchos, [
-            $data['id_materia_prima'],
-            convertir(substr($data['materia_prima_descripcion'], 0, 28)),
-            convertir(substr($data['unidad_descri'] ?? '-', 0, 12)),
-            convertir(substr($data['iva_descri'], 0, 12)),
-            convertir(substr($data['deposito_descri'], 0, 18)),
+            $data['mp_id'],
+            convertir(substr($data['mp_descripcion'], 0, 28)),
+            convertir(substr($data['unidad_medida_nombre'] ?? '-', 0, 12)),
+            convertir(substr($data['tipo_iva_nombre'] ?? '-', 0, 12)),
+            convertir(substr($data['deposito_nombre'] ?? '-', 0, 18)),
+            convertir(substr($data['marca_descrip'] ?? '-', 0, 18)),
+            $data['mp_precio_referencia'],
             number_format((float)$data['stock_total'], 0, ',', '.'),
-            convertir($data['materia_prima_estado']),
+            convertir($data['mp_estado']),
         ], $aligns);
 
         $total++;
-        if (strtoupper($data['materia_prima_estado']) === 'ACTIVO') {
+        if (strtoupper($data['mp_estado']) === 'ACTIVO') {
             $activos++;
         } else {
             $inactivos++;

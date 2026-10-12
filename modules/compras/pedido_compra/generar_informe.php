@@ -1,120 +1,40 @@
 <?php
-// Genera informe PDF de pedidos de compra.
-require_once __DIR__ . '/../../../config/bootstrap.php';
-// Incluir la conexión a la base de datos y la clase para generar PDF
-require_once PROJECT_ROOT . '/config/database.php';
-require_once PROJECT_ROOT . '/reporte/pedido_compras.php';
-
-// Validación del parámetro
-if (!isset($_GET['estado']) || $_GET['estado'] === '') {
-    echo "<script>
-            alert('No se recibió un estado válido para generar el informe.');
-            window.location.href = 'view.php';
-          </script>";
-    exit();
-}
-
-// Fechas obligatorias
-$desde = isset($_GET['desde']) ? trim($_GET['desde']) : '';
-$hasta = isset($_GET['hasta']) ? trim($_GET['hasta']) : '';
-
-$reFecha = '/^\d{4}-\d{2}-\d{2}$/';
-if ($desde === '' || $hasta === '' || !preg_match($reFecha, $desde) || !preg_match($reFecha, $hasta)) {
-    echo "<script>
-            alert('El rango de fechas es obligatorio y debe tener el formato YYYY-MM-DD.');
-            window.location.href = 'view.php';
-          </script>";
-    exit();
-}
-if ($hasta < $desde) {
-    echo "<script>
-            alert('La fecha \"Hasta\" no puede ser anterior a \"Desde\".');
-            window.location.href = 'view.php';
-          </script>";
-    exit();
-}
-
-$estado   = trim($_GET['estado']);
-$estadoUpper = mb_strtoupper($estado);
-$esTotal  = in_array($estadoUpper, ['REPORTE TOTAL','TOTAL'], true);
-
+require_once __DIR__ . '/pedido_helper.php';
 try {
-    // Conexión PDO
-    $dsn = "pgsql:host=$host;port=$port;dbname=$database;";
-    $pdo = new PDO($dsn, $user, $pass, [ PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION ]);
-
-    // --- SQL base (incluye ESTADO, FECHA y HORA) ---
-    $sql = "
-        SELECT 
-            pc.id_pedido_compra                         AS pedido_id,
-            u.username                                  AS usuario,
-            mp.materia_prima_descripcion                AS producto,
-            dp.cantidad_pedido                          AS cantidad,
-            pc.pedido_estado                            AS estado,
-            to_char(pc.pedido_fecha_emision,'YYYY-MM-DD') AS pedido_fecha,
-            to_char(pc.pedido_fecha_emision,'HH24:MI:SS') AS pedido_hora
-        FROM pedidos_compra pc
-        JOIN pedido_detalle_compra dp ON pc.id_pedido_compra = dp.id_pedido_compra
-        JOIN materia_prima mp         ON dp.id_materia_prima = mp.id_materia_prima
-        JOIN usuarios u               ON pc.id_usuario       = u.id_usuario
-        WHERE DATE(pc.pedido_fecha_emision) BETWEEN :desde AND :hasta
-    ";
-
-    // Condición solo si NO es "REPORTE TOTAL"
-    if (!$esTotal) {
-        $sql .= " AND pc.pedido_estado = :estado ";
+    $pdo = pedidoConexion();
+    pedidoUsuario($pdo);
+    require_once PROJECT_ROOT . '/reporte/pedido_compras.php';
+    $desde = trim($_GET['desde'] ?? '');
+    $hasta = trim($_GET['hasta'] ?? '');
+    foreach ([$desde, $hasta] as $fecha) {
+        $valor = DateTimeImmutable::createFromFormat('!Y-m-d', $fecha);
+        if (!$valor || $valor->format('Y-m-d') !== $fecha) throw new RuntimeException('Ingrese fechas válidas desde y hasta.');
     }
-
-    $sql .= " ORDER BY pc.pedido_fecha_emision DESC, pc.id_pedido_compra DESC, mp.materia_prima_descripcion ASC";
-
-    $stmt = $pdo->prepare($sql);
-    $stmt->bindParam(':desde', $desde, PDO::PARAM_STR);
-    $stmt->bindParam(':hasta', $hasta, PDO::PARAM_STR);
-    if (!$esTotal) {
-        $stmt->bindParam(':estado', $estado, PDO::PARAM_STR);
-    }
-    $stmt->execute();
-
-    $pedidos = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-    if (count($pedidos) === 0) {
-        header("Location: ../../comunes/reportes/view.php?alert=6"); // sin resultados
-        exit;
-    }
-
-    // --- PDF ---
-    $titulo = $esTotal ? 'INFORME DE PEDIDOS - TODOS LOS ESTADOS'
-                       : 'INFORME DE PEDIDOS - ESTADO: ' . $estado;
-
-    $pdf = new BasePDF('P', 'mm', 'A4', [
-        'titulo'    => $titulo,
-        'subtitulo' => 'Periodo: ' . $desde . ' al ' . $hasta,
-    ]);
-    $pdf->AliasNbPages();
-    $pdf->AddPage();
-
-    $anchos = [18, 30, 62, 16, 24, 20, 20];
-    $aligns = ['C', 'L', 'L', 'C', 'C', 'C', 'C'];
-    $pdf->tablaEncabezado($anchos, ['Pedido', 'Usuario', 'Materia prima', 'Cant.', 'Fecha', 'Hora', 'Estado'], $aligns);
-
-    foreach ($pedidos as $row) {
-        $pdf->tablaFila($anchos, [
-            $row['pedido_id'],
-            $row['usuario'],
-            $row['producto'],
-            $row['cantidad'],
-            $row['pedido_fecha'],
-            $row['pedido_hora'],
-            $row['estado'],
-        ], $aligns);
-    }
-
-    $pdf->pieDocumento();
-    $nombreSalida = $esTotal ? 'Informe_Pedidos_Todos.pdf'
-                             : 'Informe_Pedidos_' . preg_replace('/\s+/', '_', $estado) . '.pdf';
-    $pdf->Output('I', $nombreSalida);
-
-} catch (PDOException $e) {
-    echo "Error al consultar los datos: " . $e->getMessage();
-    exit;
+    if ($hasta < $desde) throw new RuntimeException('Hasta no puede ser anterior a Desde.');
+    $estado = strtoupper(trim($_GET['estado'] ?? 'TOTAL'));
+    $total = in_array($estado, ['TOTAL', 'REPORTE TOTAL'], true);
+    if (!$total && !in_array($estado, ['PENDIENTE', 'PROCESADO', 'ANULADO', 'APROBADO'], true)) throw new RuntimeException('Estado de reporte inválido.');
+    $sql = 'SELECT pedido_compra.pedido_nro, pedido_compra.pedido_fecha, pedido_compra.pedido_estado,
+        usuario.username, materia_prima.mp_descripcion, pedido_detalle_compra.detalle_cantidad
+        FROM pedido_compra
+        JOIN usuario ON usuario.usuario_id = pedido_compra.usuario_id
+        JOIN pedido_detalle_compra ON pedido_detalle_compra.pedido_id = pedido_compra.pedido_id
+        JOIN materia_prima ON materia_prima.mp_id = pedido_detalle_compra.mp_id
+        WHERE pedido_compra.pedido_fecha BETWEEN :desde AND :hasta';
+    $parametros = [':desde' => $desde, ':hasta' => $hasta];
+    if (!$total) { $sql .= ' AND UPPER(TRIM(pedido_compra.pedido_estado)) = :estado'; $parametros[':estado'] = $estado; }
+    $sql .= ' ORDER BY pedido_compra.pedido_id DESC, materia_prima.mp_descripcion';
+    $q = $pdo->prepare($sql); $q->execute($parametros);
+    $pdf = new BasePDF('P', 'mm', 'A4', ['titulo' => 'Informe de Pedidos de Compra', 'subtitulo' => $desde . ' al ' . $hasta . ' | ' . $estado]);
+    $pdf->AliasNbPages(); $pdf->AddPage();
+    $anchos = [18, 30, 65, 17, 25, 25];
+    $pdf->tablaEncabezado($anchos, ['Pedido', 'Usuario', 'Materia prima', 'Cant.', 'Fecha', 'Estado']);
+    $filas = $q->fetchAll();
+    foreach ($filas as $fila) $pdf->tablaFila($anchos, [$fila['pedido_nro'], $fila['username'], $fila['mp_descripcion'], $fila['detalle_cantidad'], $fila['pedido_fecha'], $fila['pedido_estado']]);
+    if (!$filas) $pdf->filaDato('Resultado:', 'Sin pedidos para los filtros seleccionados.');
+    $pdf->pieDocumento(); $pdf->Output('I', 'Informe_Pedidos_Compra.pdf');
+} catch (Throwable $e) {
+    error_log('Informe pedidos compra: ' . $e->getMessage());
+    http_response_code(400);
+    echo htmlspecialchars($e instanceof PDOException ? 'No se pudo generar el informe.' : $e->getMessage(), ENT_QUOTES, 'UTF-8');
 }

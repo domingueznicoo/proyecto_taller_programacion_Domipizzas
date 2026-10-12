@@ -94,7 +94,7 @@ $grupos = [
     'db' => 'Base de datos',
 ];
 
-echo PHP_EOL . "=== QA Emmanuels — Módulo Compras (completo) ===" . PHP_EOL;
+echo PHP_EOL . "=== QA DomiPizzas — Módulo Compras (completo) ===" . PHP_EOL;
 echo "Base de datos: {$results['database']}" . PHP_EOL;
 echo "Fecha: {$results['fecha']}" . PHP_EOL;
 

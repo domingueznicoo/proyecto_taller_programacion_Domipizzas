@@ -40,9 +40,9 @@ function validarInactivacionMateriaPrima(PDO $pdo, int $materiaPrimaId): array {
     $bloqueos = [];
 
     $qStock = $pdo->prepare("
-        SELECT COALESCE(SUM(cantidad_existente), 0) AS stock_total
+        SELECT COALESCE(SUM(stock_cantidad), 0) AS stock_total
         FROM stock_materia_prima
-        WHERE id_materia_prima = :id
+        WHERE mp_id = :id
     ");
     $qStock->execute([':id' => $materiaPrimaId]);
     $stock = (float)$qStock->fetchColumn();
@@ -59,14 +59,12 @@ function validarInactivacionMateriaPrima(PDO $pdo, int $materiaPrimaId): array {
         'factura_detalle_compra' => 'facturas de compra',
         'nota_detalle_compra' => 'notas de crédito/débito de compra',
         'nota_remision_detalle_compra' => 'notas de remisión de compra',
-        'control_produccion_consumo' => 'consumos de producción',
-        'pedido_materia_detalle_produccion' => 'pedidos de materia prima de producción',
-        'reposicion_materia_detalle' => 'reposiciones de materia prima',
-        'costo_detalle_produccion' => 'costos de producción',
+        'pedido_detalle_materia_prima' => 'pedidos de materia prima de producción',
+        'receta_detalle' => 'recetas',
     ];
 
     foreach ($vinculos as $tabla => $descripcion) {
-        $q = $pdo->prepare("SELECT 1 FROM {$tabla} WHERE id_materia_prima = :id LIMIT 1");
+        $q = $pdo->prepare("SELECT 1 FROM {$tabla} WHERE mp_id = :id LIMIT 1");
         $q->execute([':id' => $materiaPrimaId]);
         if ($q->fetchColumn()) {
             $bloqueos[] = "Tiene registros en {$descripcion}.";
@@ -93,14 +91,14 @@ try {
         exit();
     }
 
-    $qUsuario = $pdo->prepare("SELECT id_usuario, id_sucursal FROM usuarios WHERE username = :u LIMIT 1");
+    $qUsuario = $pdo->prepare("SELECT usuario_id FROM usuario WHERE username = :u LIMIT 1");
     $qUsuario->execute([':u' => $_SESSION['username']]);
     $usuario = $qUsuario->fetch();
     
     if (!$usuario) {
         throw new Exception("Usuario no encontrado");
     }
-    $idUsuario = (int)$usuario['id_usuario'];
+    $idUsuario = (int)$usuario['usuario_id'];
 
     // Toggle estado (AJAX)
     if (isset($_GET['act']) && $_GET['act'] === 'toggle_estado' && $_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -122,7 +120,7 @@ try {
         try {
             $pdo->beginTransaction();
             
-            $q = $pdo->prepare("UPDATE materia_prima SET materia_prima_estado = :estado WHERE id_materia_prima = :id");
+            $q = $pdo->prepare("UPDATE materia_prima SET mp_estado = :estado WHERE mp_id = :id");
             $q->execute([':estado' => $estado, ':id' => $id]);
             
             bitacora($pdo, $idUsuario, 'MODIFICACION', "Estado de la materia prima #{$id} cambiado a {$estado}", $id);
@@ -146,25 +144,36 @@ try {
 
     // INSERT
     if ($action == 'insert' && isset($_POST['Guardar'])) {
-        $descripcion = normalize_desc($_POST['materia_prima_descripcion'] ?? '');
-        $id_unidad = isset($_POST['id_unidad']) ? (int)$_POST['id_unidad'] : 0;
-        $iva_id = isset($_POST['iva_id']) ? (int)$_POST['iva_id'] : null;
-        $deposito_predeterminado_id = isset($_POST['deposito_predeterminado_id']) && $_POST['deposito_predeterminado_id'] !== '' ? (int)$_POST['deposito_predeterminado_id'] : 0;
+        $descripcion = normalize_desc($_POST['mp_descripcion'] ?? '');
+        $unidad_medida_id = isset($_POST['unidad_medida_id']) ? (int)$_POST['unidad_medida_id'] : 0;
+        $tipo_iva_id = isset($_POST['tipo_iva_id']) ? (int)$_POST['tipo_iva_id'] : null;
+        $deposito_id = isset($_POST['deposito_id']) && $_POST['deposito_id'] !== '' ? (int)$_POST['deposito_id'] : 0;
+
+        $marcaId = (int)($_POST['marca_id'] ?? 0);
+        $precioReferencia = trim($_POST['mp_precio_referencia'] ?? '');
+        if ($marcaId <= 0 || !preg_match('/\A\d+(?:\.\d{1,2})?\z/', $precioReferencia)) {
+            header('Location: view.php?alert=4&msg=' . urlencode('Seleccioná una marca y un precio de referencia válido.'));
+            exit();
+        }
+        if (mb_strlen($descripcion, 'UTF-8') > 30) {
+            header('Location: view.php?alert=4&msg=' . urlencode('La descripción admite hasta 30 caracteres.'));
+            exit();
+        }
 
         // Validaciones
         if (empty($descripcion)) {
             header("Location: view.php?alert=4&msg=" . urlencode("La descripción es obligatoria."));
             exit();
         }
-        if ($id_unidad <= 0) {
+        if ($unidad_medida_id <= 0) {
             header("Location: view.php?alert=4&msg=" . urlencode("Debe seleccionar una unidad de medida."));
             exit();
         }
-        if ($iva_id === null) {
+        if ($tipo_iva_id === null || $tipo_iva_id <= 0) {
             header("Location: view.php?alert=4&msg=" . urlencode("Debe seleccionar un tipo de IVA."));
             exit();
         }
-        if ($deposito_predeterminado_id <= 0) {
+        if ($deposito_id <= 0) {
             header("Location: view.php?alert=4&msg=" . urlencode("Debe seleccionar un depósito."));
             exit();
         }
@@ -174,15 +183,18 @@ try {
 
             // Insertar materia prima (solo con las columnas que existen)
             $query = $pdo->prepare("
-                INSERT INTO materia_prima (materia_prima_descripcion, materia_prima_estado, id_unidad, iva_id, id_usuario)
-                VALUES (:descri, 'ACTIVO', :id_unidad, :iva_id, :id_usuario)
-                RETURNING id_materia_prima
+                INSERT INTO materia_prima (mp_descripcion, mp_estado, unidad_medida_id, tipo_iva_id, usuario_id, marca_id, mp_precio_referencia, deposito_id)
+                VALUES (:descri, 'ACTIVO', :unidad_medida_id, :tipo_iva_id, :id_usuario, :marca_id, :precio, :deposito_id)
+                RETURNING mp_id
             ");
             $query->execute([
                 ':descri' => $descripcion,
-                ':id_unidad' => $id_unidad,
-                ':iva_id' => $iva_id,
-                ':id_usuario' => $idUsuario
+                ':unidad_medida_id' => $unidad_medida_id,
+                ':tipo_iva_id' => $tipo_iva_id,
+                ':id_usuario' => $idUsuario,
+                ':marca_id' => $marcaId,
+                ':precio' => $precioReferencia,
+                ':deposito_id' => $deposito_id
             ]);
             $materiaPrimaId = (int)$query->fetchColumn();
 
@@ -191,22 +203,22 @@ try {
             try {
                 $checkStock = $pdo->prepare("
                     SELECT 1 FROM stock_materia_prima 
-                    WHERE id_materia_prima = :materia_prima_id AND deposito_id = :deposito_id
+                    WHERE mp_id = :materia_prima_id AND deposito_id = :deposito_id
                     LIMIT 1
                 ");
                 $checkStock->execute([
                     ':materia_prima_id' => $materiaPrimaId,
-                    ':deposito_id' => $deposito_predeterminado_id
+                    ':deposito_id' => $deposito_id
                 ]);
                 
                 if (!$checkStock->fetchColumn()) {
                     $queryStock = $pdo->prepare("
-                        INSERT INTO stock_materia_prima (id_materia_prima, deposito_id, cantidad_existente, stock_cantidad_minima, stock_cantidad_maxima, id_usuario)
-                        VALUES (:materia_prima_id, :deposito_id, 0, 0, 0, :id_usuario)
+                        INSERT INTO stock_materia_prima (mp_id, deposito_id, stock_cantidad, usuario_id)
+                        VALUES (:materia_prima_id, :deposito_id, 0, :id_usuario)
                     ");
                     $queryStock->execute([
                         ':materia_prima_id' => $materiaPrimaId,
-                        ':deposito_id' => $deposito_predeterminado_id,
+                        ':deposito_id' => $deposito_id,
                         ':id_usuario' => $idUsuario
                     ]);
                 }
@@ -235,9 +247,9 @@ try {
             } elseif (stripos($errorMsg, 'null value') !== false && stripos($errorMsg, 'violates not-null constraint') !== false) {
                 $userMessage = 'Error: Faltan datos obligatorios. Complete todos los campos requeridos.';
             } elseif (stripos($errorMsg, 'foreign key') !== false) {
-                if (stripos($errorMsg, 'id_unidad') !== false) {
+                if (stripos($errorMsg, 'unidad_medida_id') !== false) {
                     $userMessage = 'Error: La unidad de medida seleccionada no es válida.';
-                } elseif (stripos($errorMsg, 'iva_id') !== false) {
+                } elseif (stripos($errorMsg, 'tipo_iva_id') !== false) {
                     $userMessage = 'Error: El tipo de IVA seleccionado no es válido.';
                 } else {
                     $userMessage = 'Error de relación de datos. Verifique las selecciones.';
@@ -262,12 +274,28 @@ try {
 
     // UPDATE
     elseif ($action == 'update' && isset($_POST['Guardar'])) {
-        $materia_prima_id = isset($_POST['id_materia_prima']) ? (int)$_POST['id_materia_prima'] : 0;
-        $descripcion = normalize_desc($_POST['materia_prima_descripcion'] ?? '');
-        $id_unidad = isset($_POST['id_unidad']) ? (int)$_POST['id_unidad'] : 0;
-        $iva_id = isset($_POST['iva_id']) ? (int)$_POST['iva_id'] : null;
-        $deposito_predeterminado_id = isset($_POST['deposito_predeterminado_id']) && $_POST['deposito_predeterminado_id'] !== '' ? (int)$_POST['deposito_predeterminado_id'] : 0;
-        $estado = isset($_POST['materia_prima_estado']) ? strtoupper(trim($_POST['materia_prima_estado'])) : 'ACTIVO';
+        $materia_prima_id = isset($_POST['mp_id']) ? (int)$_POST['mp_id'] : 0;
+        $descripcion = normalize_desc($_POST['mp_descripcion'] ?? '');
+        $unidad_medida_id = isset($_POST['unidad_medida_id']) ? (int)$_POST['unidad_medida_id'] : 0;
+        $tipo_iva_id = isset($_POST['tipo_iva_id']) ? (int)$_POST['tipo_iva_id'] : null;
+        $deposito_id = isset($_POST['deposito_id']) && $_POST['deposito_id'] !== '' ? (int)$_POST['deposito_id'] : 0;
+        $estado = isset($_POST['mp_estado']) ? strtoupper(trim($_POST['mp_estado'])) : 'ACTIVO';
+
+        $marcaId = (int)($_POST['marca_id'] ?? 0);
+        $precioReferencia = trim($_POST['mp_precio_referencia'] ?? '');
+        if ($marcaId <= 0 || !preg_match('/\A\d+(?:\.\d{1,2})?\z/', $precioReferencia)) {
+            header('Location: view.php?alert=4&msg=' . urlencode('Seleccioná una marca y un precio de referencia válido.'));
+            exit();
+        }
+        if (mb_strlen($descripcion, 'UTF-8') > 30) {
+            header('Location: view.php?alert=4&msg=' . urlencode('La descripción admite hasta 30 caracteres.'));
+            exit();
+        }
+
+        if (!in_array($estado, ['ACTIVO', 'INACTIVO'], true)) {
+            header('Location: view.php?alert=4');
+            exit();
+        }
 
         if ($materia_prima_id <= 0) {
             header("Location: view.php?alert=4&msg=" . urlencode("ID de materia prima inválido."));
@@ -277,15 +305,15 @@ try {
             header("Location: view.php?alert=4&msg=" . urlencode("La descripción es obligatoria."));
             exit();
         }
-        if ($id_unidad <= 0) {
+        if ($unidad_medida_id <= 0) {
             header("Location: view.php?alert=4&msg=" . urlencode("Debe seleccionar una unidad de medida."));
             exit();
         }
-        if ($iva_id === null) {
+        if ($tipo_iva_id === null || $tipo_iva_id <= 0) {
             header("Location: view.php?alert=4&msg=" . urlencode("Debe seleccionar un tipo de IVA."));
             exit();
         }
-        if ($deposito_predeterminado_id <= 0) {
+        if ($deposito_id <= 0) {
             header("Location: view.php?alert=4&msg=" . urlencode("Debe seleccionar un depósito."));
             exit();
         }
@@ -296,18 +324,24 @@ try {
             // Actualizar materia prima (solo con las columnas que existen)
             $query = $pdo->prepare("
                 UPDATE materia_prima 
-                SET materia_prima_descripcion = :descri, 
-                    materia_prima_estado = :estado,
-                    id_unidad = :id_unidad, 
-                    iva_id = :iva_id
-                WHERE id_materia_prima = :id
+                SET mp_descripcion = :descri, 
+                    mp_estado = :estado,
+                    unidad_medida_id = :unidad_medida_id, 
+                    tipo_iva_id = :tipo_iva_id,
+                    marca_id = :marca_id,
+                    mp_precio_referencia = :precio,
+                    deposito_id = :deposito_id
+                WHERE mp_id = :id
             ");
             $query->execute([
                 ':descri' => $descripcion,
                 ':estado' => $estado,
-                ':id_unidad' => $id_unidad,
-                ':iva_id' => $iva_id,
-                ':id' => $materia_prima_id
+                ':unidad_medida_id' => $unidad_medida_id,
+                ':tipo_iva_id' => $tipo_iva_id,
+                ':id' => $materia_prima_id,
+                ':marca_id' => $marcaId,
+                ':precio' => $precioReferencia,
+                ':deposito_id' => $deposito_id
             ]);
 
             // Asegurar registro de stock en el depósito predeterminado
@@ -315,19 +349,19 @@ try {
             try {
                 $qStock = $pdo->prepare("
                     SELECT 1 FROM stock_materia_prima 
-                    WHERE id_materia_prima = :materia_prima_id AND deposito_id = :deposito_id
+                    WHERE mp_id = :materia_prima_id AND deposito_id = :deposito_id
                     LIMIT 1
                 ");
-                $qStock->execute([':materia_prima_id' => $materia_prima_id, ':deposito_id' => $deposito_predeterminado_id]);
+                $qStock->execute([':materia_prima_id' => $materia_prima_id, ':deposito_id' => $deposito_id]);
                 if (!$qStock->fetchColumn()) {
                     $qInsertStock = $pdo->prepare("
-                        INSERT INTO stock_materia_prima (id_materia_prima, deposito_id, cantidad_existente, stock_cantidad_minima, stock_cantidad_maxima, id_usuario)
-                        VALUES (:materia_prima_id, :deposito_id, 0, 0, 0, :id_usuario)
+                        INSERT INTO stock_materia_prima (mp_id, deposito_id, stock_cantidad, usuario_id)
+                        VALUES (:materia_prima_id, :deposito_id, 0, :id_usuario)
                         ON CONFLICT DO NOTHING
                     ");
                     $qInsertStock->execute([
                         ':materia_prima_id' => $materia_prima_id,
-                        ':deposito_id' => $deposito_predeterminado_id,
+                        ':deposito_id' => $deposito_id,
                         ':id_usuario' => $idUsuario
                     ]);
                 }
@@ -356,9 +390,9 @@ try {
             } elseif (stripos($errorMsg, 'null value') !== false && stripos($errorMsg, 'violates not-null constraint') !== false) {
                 $userMessage = 'Error: Faltan datos obligatorios. Complete todos los campos requeridos.';
             } elseif (stripos($errorMsg, 'foreign key') !== false) {
-                if (stripos($errorMsg, 'id_unidad') !== false) {
+                if (stripos($errorMsg, 'unidad_medida_id') !== false) {
                     $userMessage = 'Error: La unidad de medida seleccionada no es válida.';
-                } elseif (stripos($errorMsg, 'iva_id') !== false) {
+                } elseif (stripos($errorMsg, 'tipo_iva_id') !== false) {
                     $userMessage = 'Error: El tipo de IVA seleccionado no es válido.';
                 } else {
                     $userMessage = 'Error de relación de datos. Verifique las selecciones.';
@@ -418,7 +452,7 @@ try {
         try {
             $pdo->beginTransaction();
 
-            $qMp = $pdo->prepare("SELECT materia_prima_descripcion, materia_prima_estado FROM materia_prima WHERE id_materia_prima = :id LIMIT 1");
+            $qMp = $pdo->prepare("SELECT mp_descripcion, mp_estado FROM materia_prima WHERE mp_id = :id LIMIT 1");
             $qMp->execute([':id' => $materia_prima_id]);
             $mp = $qMp->fetch();
             
@@ -428,7 +462,7 @@ try {
                 exit;
             }
 
-            $estadoActual = strtoupper(trim($mp['materia_prima_estado'] ?? 'ACTIVO'));
+            $estadoActual = strtoupper(trim($mp['mp_estado'] ?? 'ACTIVO'));
             if ($estadoActual !== 'ACTIVO') {
                 $pdo->commit();
                 echo json_encode([
@@ -451,10 +485,10 @@ try {
                 exit;
             }
 
-            $qUpdate = $pdo->prepare("UPDATE materia_prima SET materia_prima_estado = 'INACTIVO' WHERE id_materia_prima = :id");
+            $qUpdate = $pdo->prepare("UPDATE materia_prima SET mp_estado = 'INACTIVO' WHERE mp_id = :id");
             $qUpdate->execute([':id' => $materia_prima_id]);
 
-            $descBitacora = "Materia prima #{$materia_prima_id} ({$mp['materia_prima_descripcion']}) inactivada";
+            $descBitacora = "Materia prima #{$materia_prima_id} ({$mp['mp_descripcion']}) inactivada";
             if (!$validacion['puede']) {
                 $descBitacora .= ' (forzada: ' . implode(' ', $validacion['bloqueos']) . ')';
             }

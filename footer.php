@@ -15,7 +15,7 @@ if (!isset($BASE_PATH)) {
             <footer class="sticky-footer bg-white">
                 <div class="container my-auto">
                     <div class="copyright text-center my-auto">
-                        <span>Copyright &copy; Emmanuels - Lucas Medina - <?= date('Y') ?></span>
+                        <span>Copyright &copy; DomiPizzas - Nicolas Dominguez - <?= date('Y') ?></span>
                     </div>
                 </div>
             </footer>

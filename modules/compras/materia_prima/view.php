@@ -25,7 +25,7 @@ try {
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
     ]);
 
-    $query = $pdo->prepare("SELECT * FROM usuarios WHERE username = :username");
+    $query = $pdo->prepare("SELECT * FROM usuario WHERE username = :username");
     $query->bindParam(':username', $username, PDO::PARAM_STR);
     $query->execute();
     $auth_user = $query->fetch();
@@ -37,7 +37,7 @@ try {
               </script>";
         exit();
     }
-    $permisoAcceso = (int)($auth_user['id_cargo'] ?? 0);
+    $permisoAcceso = (int)($auth_user['cargo_id'] ?? 0);
 } catch (PDOException $e) {
     die("Error en la conexión a la base de datos: " . $e->getMessage());
 }
@@ -54,7 +54,7 @@ $extra_js_plugins = [
 // Incluir header común (ya maneja permisos dinámicamente)
 include PROJECT_ROOT . '/header.php';
 
-$mostrarListado = !(isset($_GET['form_materia_prima']) && ($_GET['form'] === 'add' || $_GET['form'] === 'edit'));
+$mostrarListado = !(isset($_GET['form_materia_prima']) && (($_GET['form'] ?? '') === 'add' || ($_GET['form'] ?? '') === 'edit'));
 ?>
 
 <!-- Contenido específico del módulo -->
@@ -65,9 +65,10 @@ $mostrarListado = !(isset($_GET['form_materia_prima']) && ($_GET['form'] === 'ad
             <a href="?form_materia_prima=add&form=add" class="btn btn-primary btn-sm shadow-sm">
                 <i class="fas fa-plus fa-sm text-white-50"></i> Nueva Materia Prima
             </a>
-            <button type="button" class="btn btn-warning btn-sm shadow-sm" data-toggle="modal" data-target="#modalReporte">
-                <i class="fas fa-print fa-sm text-white-50"></i> Imprimir Reporte
-        </button>
+            <a href="reporte.php" target="_blank" rel="noopener" class="btn btn-warning btn-sm shadow-sm" title="Reporte" aria-label="Reporte">
+                <i class="fas fa-print fa-sm" aria-hidden="true"></i> Reporte
+            </a>
+
   </div>
 </div>
 
@@ -119,7 +120,9 @@ $mostrarListado = !(isset($_GET['form_materia_prima']) && ($_GET['form'] === 'ad
                                             <th>Descripción</th>
                             <th>Unidad de Medida</th>
                             <th>Tipo IVA</th>
-                            <th>Depósito Predeterminado</th>
+                            <th>Depósito</th>
+                            <th>Marca</th>
+                            <th>Precio de referencia</th>
                                             <th>Estado</th>
                                             <th>Acciones</th>
                                         </tr>
@@ -128,53 +131,47 @@ $mostrarListado = !(isset($_GET['form_materia_prima']) && ($_GET['form'] === 'ad
                                         <?php
                         try {
                             $sql = "
-                                SELECT 
-                                    mp.id_materia_prima,
-                                    mp.materia_prima_descripcion,
-                                    mp.materia_prima_estado,
-                                    um.unidad_descri,
-                                    COALESCE(ti.iva_descri, 'Sin IVA') AS iva_descri,
-                                    COALESCE(d.deposito_descri, 'Sin depósito') AS deposito_descri,
-                                    COALESCE(SUM(smp.cantidad_existente), 0) AS stock_total
+                                SELECT mp.mp_id, mp.mp_descripcion, mp.mp_estado,
+                                       um.unidad_medida_nombre, ti.tipo_iva_nombre, d.deposito_nombre,
+                                       m.marca_descrip, mp.mp_precio_referencia,
+                                       COALESCE((SELECT SUM(stock_cantidad) FROM stock_materia_prima
+                                                 WHERE mp_id = mp.mp_id), 0) AS stock_total
                                 FROM materia_prima mp
-                                LEFT JOIN unidad_medida um ON mp.id_unidad = um.id_unidad
-                                LEFT JOIN tipo_iva ti ON mp.iva_id = ti.iva_id
-                                LEFT JOIN stock_materia_prima smp ON smp.id_materia_prima = mp.id_materia_prima
-                                LEFT JOIN deposito d ON d.deposito_id = (
-                                    SELECT deposito_id FROM stock_materia_prima 
-                                    WHERE id_materia_prima = mp.id_materia_prima 
-                                    ORDER BY cantidad_existente DESC 
-                                    LIMIT 1
-                                )
-                                GROUP BY mp.id_materia_prima, mp.materia_prima_descripcion,
-                                         mp.materia_prima_estado, um.unidad_descri, 
-                                         ti.iva_descri, d.deposito_descri
-                                ORDER BY mp.id_materia_prima DESC
+                                LEFT JOIN unidad_medida um ON mp.unidad_medida_id = um.unidad_medida_id
+                                LEFT JOIN tipo_iva ti ON mp.tipo_iva_id = ti.tipo_iva_id
+                                LEFT JOIN deposito d ON d.deposito_id = mp.deposito_id
+                                LEFT JOIN marca m ON m.marca_id = mp.marca_id
+                                ORDER BY mp.mp_id DESC
                             ";
                             foreach ($pdo->query($sql) as $data) {
                                 $estadoClass = '';
-                                $estado = strtoupper(trim($data['materia_prima_estado'] ?? 'ACTIVO'));
+                                $estado = strtoupper(trim($data['mp_estado'] ?? 'ACTIVO'));
                                 if ($estado === 'ACTIVO') $estadoClass = 'badge-success';
                                 elseif ($estado === 'INACTIVO') $estadoClass = 'badge-warning';
                                 else $estadoClass = 'badge-danger';
 
                                 echo "<tr>";
-                                echo "<td>" . htmlspecialchars($data['id_materia_prima']) . "</td>";
-                                echo "<td>" . htmlspecialchars($data['materia_prima_descripcion']) . "</td>";
-                                echo "<td>" . htmlspecialchars($data['unidad_descri'] ?? 'Sin unidad') . "</td>";
-                                echo "<td>" . htmlspecialchars($data['iva_descri']) . "</td>";
-                                echo "<td>" . htmlspecialchars($data['deposito_descri']) . "</td>";
+                                echo "<td>" . htmlspecialchars($data['mp_id']) . "</td>";
+                                echo "<td>" . htmlspecialchars($data['mp_descripcion']) . "</td>";
+                                echo "<td>" . htmlspecialchars($data['unidad_medida_nombre'] ?? 'Sin unidad') . "</td>";
+                                echo "<td>" . htmlspecialchars($data['tipo_iva_nombre']) . "</td>";
+                                echo "<td>" . htmlspecialchars($data['deposito_nombre']) . "</td>";
+                                echo "<td>" . htmlspecialchars($data['marca_descrip'] ?? '-') . "</td>";
+                                echo "<td>" . htmlspecialchars($data['mp_precio_referencia']) . "</td>";
                                 echo "<td><span class='badge {$estadoClass}'>" . htmlspecialchars($estado) . "</span></td>";
                                 echo "<td>";
-                                echo "<a href='?form_materia_prima=edit&form=edit&id={$data['id_materia_prima']}' class='btn btn-warning btn-sm' title='Editar'>";
+                                echo "<a href='?form_materia_prima=edit&form=edit&id={$data['mp_id']}' class='btn btn-warning btn-sm' title='Editar' aria-label='Editar'>";
                                 echo "<i class='fas fa-edit'></i></a> ";
-                                echo "<button type='button' class='btn btn-danger btn-sm btn-eliminar' data-id='{$data['id_materia_prima']}' data-descripcion='" . htmlspecialchars($data['materia_prima_descripcion'], ENT_QUOTES) . "' data-stock='{$data['stock_total']}' title='Inactivar'>";
-                                echo "<i class='fas fa-ban'></i></button>";
+                                if ($estado === 'ACTIVO') {
+                                    echo "<button type='button' class='btn btn-danger btn-sm btn-eliminar' data-id='{$data['mp_id']}' data-descripcion='" . htmlspecialchars($data['mp_descripcion'], ENT_QUOTES) . "' data-stock='{$data['stock_total']}' title='Desactivar' aria-label='Desactivar'><i class='fas fa-ban'></i></button> ";
+                                } else {
+                                    echo "<button type='button' class='btn btn-success btn-sm btn-activar' data-id='{$data['mp_id']}' title='Activar' aria-label='Activar'><i class='fas fa-check'></i></button> ";
+                                }
                                 echo "</td>";
                                 echo "</tr>";
                             }
                                         } catch (PDOException $e) {
-                            echo "<tr><td colspan='7'>Error al consultar los datos: " . htmlspecialchars($e->getMessage()) . "</td></tr>";
+                            echo "<tr><td colspan='9'>Error al consultar los datos: " . htmlspecialchars($e->getMessage()) . "</td></tr>";
                                         }
                                         ?>
                                     </tbody>
@@ -209,52 +206,6 @@ $mostrarListado = !(isset($_GET['form_materia_prima']) && ($_GET['form'] === 'ad
                     <button type="button" class="btn btn-danger" id="confirmEliminarBtn">Inactivar</button>
                     <button type="button" class="btn btn-warning d-none" id="confirmForceEliminarBtn">Inactivar de todos modos</button>
                 </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal de Reporte -->
-    <div class="modal fade" id="modalReporte" tabindex="-1" role="dialog" aria-labelledby="modalReporteLabel" aria-hidden="true">
-        <div class="modal-dialog" role="document">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="modalReporteLabel">Opciones de Reporte</h5>
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
-                </div>
-                <form action="reporte.php" method="GET" target="_blank">
-                    <div class="modal-body">
-                        <div class="form-group">
-                            <label for="filtro_estado_reporte">Estado</label>
-                            <select name="estado" id="filtro_estado_reporte" class="form-control">
-                                <option value="">Todos</option>
-                                <option value="ACTIVO">Activas</option>
-                                <option value="INACTIVO">Inactivas</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="filtro_iva_reporte">Tipo de IVA</label>
-                            <select name="iva_id" id="filtro_iva_reporte" class="form-control">
-                                <option value="">Todos</option>
-                                <?php
-                                try {
-                                    $query_iva = $pdo->query("SELECT iva_id, iva_descri FROM tipo_iva ORDER BY iva_id ASC");
-                                    while ($iva = $query_iva->fetch()) {
-                                        echo "<option value=\"{$iva['iva_id']}\">{$iva['iva_descri']}</option>";
-                                    }
-                                } catch (PDOException $e) {
-                                    // Silenciar error
-                                }
-                                ?>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
-                        <button type="submit" class="btn btn-primary">Generar Reporte</button>
-                    </div>
-                </form>
             </div>
         </div>
     </div>
@@ -309,6 +260,27 @@ $(document).ready(function() {
             }
         });
     }
+
+    $('#dataTable').on('click', '.btn-activar', function() {
+        if (!confirm('¿Confirma activar esta materia prima?')) return;
+        var button = $(this);
+        button.prop('disabled', true);
+        $.ajax({
+            url: 'proses.php?act=toggle_estado',
+            type: 'POST',
+            data: { id: button.data('id'), estado: 'ACTIVO' },
+            dataType: 'json',
+            success: function(response) {
+                if (response.ok) {
+                    window.location.reload();
+                } else {
+                    alert(response.msg || 'No se pudo activar la materia prima.');
+                }
+            },
+            error: function() { alert('No se pudo confirmar la activación.'); },
+            complete: function() { button.prop('disabled', false); }
+        });
+    });
 
     $('#dataTable').on('click', '.btn-eliminar', function() {
         materiaPrimaIdActual = $(this).data('id');

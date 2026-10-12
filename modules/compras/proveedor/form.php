@@ -13,7 +13,7 @@ require_once PROJECT_ROOT . '/config/database.php';
 require_once PROJECT_ROOT . '/config/permissions.php';
 check_permission(['COMPRAS', 'REFERENCIALES']);
 
-$isEdit = isset($_GET['form_proveedor']) && $_GET['form'] == 'edit' && isset($_GET['id']);
+$isEdit = isset($_GET['form_proveedor']) && ($_GET['form'] ?? '') == 'edit' && isset($_GET['id']);
 $proveedorData = null;
 
 if ($isEdit) {
@@ -24,7 +24,7 @@ if ($isEdit) {
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
         ]);
 
-        $query = $pdo->prepare("SELECT * FROM proveedor WHERE id_proveedor = :id");
+        $query = $pdo->prepare("SELECT * FROM proveedor WHERE prov_id = :id");
         $query->execute([':id' => (int)$_GET['id']]);
         $proveedorData = $query->fetch();
 
@@ -33,11 +33,11 @@ if ($isEdit) {
             exit();
         }
 
-        $estado = strtoupper(trim($proveedorData['estado_proveedor'] ?? 'ACTIVO'));
+        $estado = strtoupper(trim($proveedorData['prov_estado'] ?? 'ACTIVO'));
         if ($estado === 'ANULADO') {
             $estado = 'INACTIVO';
         }
-        $proveedorData['estado_proveedor'] = $estado;
+        $proveedorData['prov_estado'] = $estado;
     } catch (PDOException $e) {
         die("Error: " . $e->getMessage());
     }
@@ -59,15 +59,15 @@ if ($isEdit) {
         <div class="card-body">
             <form action="proses.php?act=<?= $isEdit ? 'update' : 'insert' ?>" method="POST" id="formProveedor">
                 <?php if ($isEdit): ?>
-                    <input type="hidden" name="id_proveedor" value="<?= htmlspecialchars($proveedorData['id_proveedor']) ?>">
+                    <input type="hidden" name="prov_id" value="<?= htmlspecialchars($proveedorData['prov_id']) ?>">
                 <?php endif; ?>
 
                 <div class="row">
                     <div class="col-md-12">
                         <div class="form-group">
-                            <label for="razon_social">Razón Social <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="razon_social" name="razon_social"
-                                   value="<?= $isEdit ? htmlspecialchars($proveedorData['razon_social'] ?? '') : '' ?>"
+                            <label for="prov_razon_social">Razón Social <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="prov_razon_social" name="prov_razon_social"
+                                   value="<?= $isEdit ? htmlspecialchars($proveedorData['prov_razon_social'] ?? '') : '' ?>"
                                    placeholder="Ingrese la razón social" required maxlength="150">
                         </div>
                     </div>
@@ -76,9 +76,9 @@ if ($isEdit) {
                 <div class="row">
                     <div class="col-md-6">
                         <div class="form-group">
-                            <label for="ruc_proveedor">RUC <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="ruc_proveedor" name="ruc_proveedor"
-                                   value="<?= $isEdit ? htmlspecialchars($proveedorData['ruc_proveedor'] ?? '') : '' ?>"
+                            <label for="prov_ruc">RUC <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="prov_ruc" name="prov_ruc"
+                                   value="<?= $isEdit ? htmlspecialchars($proveedorData['prov_ruc'] ?? '') : '' ?>"
                                    placeholder="Ej: 5574408-1" required maxlength="20"
                                    pattern="^(\d{6,7}-\d{1}|\d{8,9})$"
                                    title="Formato: NNNNNNN-N o NNNNNNNN">
@@ -87,9 +87,9 @@ if ($isEdit) {
                     </div>
                     <div class="col-md-6">
                         <div class="form-group">
-                            <label for="telefono_proveedor">Teléfono <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="telefono_proveedor" name="telefono_proveedor"
-                                   value="<?= $isEdit ? htmlspecialchars($proveedorData['telefono_proveedor'] ?? '') : '' ?>"
+                            <label for="prov_telefono">Teléfono <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="prov_telefono" name="prov_telefono"
+                                   value="<?= $isEdit ? htmlspecialchars($proveedorData['prov_telefono'] ?? '') : '' ?>"
                                    placeholder="Ingrese el teléfono" required maxlength="30"
                                    pattern="^[0-9+\-\s]+$"
                                    title="Solo números, espacios, + y guiones">
@@ -100,17 +100,17 @@ if ($isEdit) {
                 <div class="row">
                     <div class="col-md-6">
                         <div class="form-group">
-                            <label for="direccion_proveedor">Dirección</label>
-                            <input type="text" class="form-control" id="direccion_proveedor" name="direccion_proveedor"
-                                   value="<?= $isEdit ? htmlspecialchars($proveedorData['direccion_proveedor'] ?? '') : '' ?>"
+                            <label for="prov_direccion">Dirección</label>
+                            <input type="text" class="form-control" id="prov_direccion" name="prov_direccion"
+                                   value="<?= $isEdit ? htmlspecialchars($proveedorData['prov_direccion'] ?? '') : '' ?>"
                                    placeholder="Ingrese la dirección" maxlength="200">
                         </div>
                     </div>
                     <div class="col-md-6">
                         <div class="form-group">
-                            <label for="email_proveedor">Correo Electrónico</label>
-                            <input type="email" class="form-control" id="email_proveedor" name="email_proveedor"
-                                   value="<?= $isEdit ? htmlspecialchars($proveedorData['email_proveedor'] ?? '') : '' ?>"
+                            <label for="prov_email">Correo Electrónico</label>
+                            <input type="email" class="form-control" id="prov_email" name="prov_email"
+                                   value="<?= $isEdit ? htmlspecialchars($proveedorData['prov_email'] ?? '') : '' ?>"
                                    placeholder="correo@ejemplo.com" maxlength="120">
                         </div>
                     </div>
@@ -120,10 +120,10 @@ if ($isEdit) {
                 <div class="row">
                     <div class="col-md-6">
                         <div class="form-group">
-                            <label for="estado_proveedor">Estado</label>
-                            <select name="estado_proveedor" id="estado_proveedor" class="form-control">
-                                <option value="ACTIVO" <?= (($proveedorData['estado_proveedor'] ?? 'ACTIVO') === 'ACTIVO') ? 'selected' : '' ?>>ACTIVO</option>
-                                <option value="INACTIVO" <?= (($proveedorData['estado_proveedor'] ?? '') === 'INACTIVO') ? 'selected' : '' ?>>INACTIVO</option>
+                            <label for="prov_estado">Estado</label>
+                            <select name="prov_estado" id="prov_estado" class="form-control">
+                                <option value="ACTIVO" <?= (($proveedorData['prov_estado'] ?? 'ACTIVO') === 'ACTIVO') ? 'selected' : '' ?>>ACTIVO</option>
+                                <option value="INACTIVO" <?= (($proveedorData['prov_estado'] ?? '') === 'INACTIVO') ? 'selected' : '' ?>>INACTIVO</option>
                             </select>
                         </div>
                     </div>

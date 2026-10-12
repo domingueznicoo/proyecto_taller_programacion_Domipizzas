@@ -29,10 +29,10 @@ class BasePDF extends FPDF
     {
         parent::__construct($orientation, $unit, $size);
         $defaultTitulo = defined('BASE_PDF_TITLE') ? BASE_PDF_TITLE : 'Informe';
-        $this->empresa   = $opts['empresa']   ?? 'Emmanuels';
+        $this->empresa   = $opts['empresa']   ?? 'DomiPizzas';
         $this->ubicacion = $opts['ubicacion'] ?? 'Ruta Departamental D027, San Lorenzo - Paraguay';
         $this->telefono  = $opts['telefono']  ?? '+595 972 957381';
-        $this->correo    = $opts['correo']    ?? 'emmanuels@gmail.com';
+        $this->correo    = $opts['correo']    ?? 'DomiPizzas@gmail.com';
         $this->titulo    = $opts['titulo']    ?? $defaultTitulo;
         $this->subtitulo = $opts['subtitulo'] ?? '';
         $this->SetAutoPageBreak(true, 20);
@@ -183,7 +183,7 @@ class BasePDF extends FPDF
         $this->Cell($anchoValor, 7, convertir($valor), 1, 1, 'C', true);
     }
 
-    public function pieDocumento(string $texto = 'Documento generado por el sistema de gestion Emmanuels.'): void
+    public function pieDocumento(string $texto = 'Documento generado por el sistema de gestion DomiPizzas.'): void
     {
         $this->Ln(6);
         $this->SetFont('Arial', 'I', 8);

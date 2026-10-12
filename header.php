@@ -4,6 +4,9 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
     session_start();
 }
 
+require_once __DIR__ . '/config/remember_session.php';
+remember_restore();
+
 // Validar sesión (username)
 if (empty($_SESSION['username'])) {
     require_once __DIR__ . '/config/paths.php';
@@ -20,9 +23,8 @@ $BASE_PATH = $GLOBALS['BASE_PATH'] ?? computeBasePath();
 
 // Datos para el topbar
 $auth_user = [
-    'id_usuario' => $_SESSION['id_usuario'] ?? null,
+    'id_usuario' => $_SESSION['usuario_id'] ?? null,
     'username'   => $_SESSION['username']   ?? '',
-    'email'      => $_SESSION['usua_email'] ?? '',
 ];
 
 // Obtener cargo normalizado de la sesión
@@ -145,7 +147,7 @@ $showNotas = has_permission('NOTAS_COMPRAS');
     .sidebar-red .sidebar-brand-text {
         color: #fff;
     }
-    .sidebar-hamburger-icon {
+    .sidebar-pizza-icon {
         font-size: 24px;
         color: white;
         margin-right: 10px;
@@ -288,8 +290,8 @@ $showNotas = has_permission('NOTAS_COMPRAS');
 
             <!-- Sidebar - Brand -->
             <a class="sidebar-brand d-flex align-items-center" href="<?= $BASE_PATH ?>index.php">
-                <i class="fas fa-hamburger sidebar-hamburger-icon"></i>
-                <span class="sidebar-brand-text">Emmanuels</span>
+                <i class="fas fa-pizza-slice sidebar-pizza-icon"></i>
+                <span class="sidebar-brand-text">DomiPizzas</span>
             </a>
 
             <!-- Divider -->

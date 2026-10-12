@@ -4,6 +4,7 @@ session_start();
 
 
 include 'header.php';
+$_SESSION['logout_csrf'] = $_SESSION['logout_csrf'] ?? bin2hex(random_bytes(32));
 ?>
 
 
@@ -11,7 +12,7 @@ include 'header.php';
                  
                 <!-- Logo grande centrado arriba del copyright -->
                 <div class="text-center mb-4" style="margin-top: 50px;">
-                    <i class="fas fa-hamburger" style="font-size: 120px; color: #dc2626; opacity: 0.3;"></i>
+                    <i class="fas fa-pizza-slice sidebar-pizza-icon" style="font-size: 120px; color: #dc2626; opacity: 0.3;"></i>
                 </div>
 
             </div>
@@ -23,7 +24,7 @@ include 'header.php';
             <footer class="sticky-footer bg-white">
                 <div class="container my-auto">
                     <div class="copyright text-center my-auto">
-                        <span>Copyright &copy; Emmanuels - Lucas Medina - 2025</span>
+                        <span>Copyright &copy; DomiPizzas - Nicolas Dominguez - 2026</span>
                     </div>
                 </div>
             </footer>
@@ -56,7 +57,10 @@ include 'header.php';
                 <div class="modal-body">Seleccione "Cerrar sesión" si está listo para finalizar su sesión actual.</div>
                 <div class="modal-footer">
                     <button class="btn btn-secondary" type="button" data-dismiss="modal">Cancelar</button>
-                    <a class="btn btn-primary" href="<?= isset($BASE_PATH) ? $BASE_PATH : '' ?>login.html">Cerrar sesión</a>
+                    <form method="post" action="<?= isset($BASE_PATH) ? $BASE_PATH : '' ?>auth/logout.php">
+                        <input type="hidden" name="csrf" value="<?= htmlspecialchars($_SESSION['logout_csrf'], ENT_QUOTES, 'UTF-8') ?>">
+                        <button class="btn btn-primary" type="submit">Cerrar sesión</button>
+                    </form>
                 </div>
             </div>
         </div>

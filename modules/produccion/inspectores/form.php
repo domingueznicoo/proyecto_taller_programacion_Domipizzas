@@ -34,31 +34,20 @@ if ($isEdit) {
     }
 }
 
-$sqlPersonal = "
-    SELECT id_personal, TRIM(personal_nombre || ' ' || personal_apellido) AS nombre_completo
-    FROM personal
-    WHERE UPPER(TRIM(personal_estado)) = 'ACTIVO'
-";
-if ($isEdit) {
-    $sqlPersonal .= " AND (
-        id_personal NOT IN (
-            SELECT id_personal FROM inspectores
-            WHERE UPPER(TRIM(inspector_estado)) = 'ACTIVO'
-              AND id_inspectores <> :exclude
-        ) OR id_personal = :current
-    )";
-    $stP = $pdo->prepare($sqlPersonal . ' ORDER BY personal_apellido, personal_nombre');
-    $stP->execute([
-        ':exclude' => (int)$inspectorData['id_inspectores'],
-        ':current' => (int)$inspectorData['id_personal'],
-    ]);
-} else {
-    $sqlPersonal .= " AND id_personal NOT IN (
-        SELECT id_personal FROM inspectores WHERE UPPER(TRIM(inspector_estado)) = 'ACTIVO'
-    )";
-    $stP = $pdo->query($sqlPersonal . ' ORDER BY personal_apellido, personal_nombre');
-}
-$listaPersonal = $stP->fetchAll();
+$consulta = $pdo->prepare("SELECT trabajadores.trabajadores_id, trabajadores.trabajador_estado,
+        personal.personal_nombre, personal.personal_apellido, personal.personal_estado
+    FROM trabajadores JOIN personal ON personal.personal_id = trabajadores.personal_id
+    WHERE (UPPER(TRIM(trabajadores.trabajador_estado)) = 'ACTIVO'
+        AND UPPER(TRIM(personal.personal_estado)) = 'ACTIVO'
+        AND NOT EXISTS (SELECT 1 FROM inspectores WHERE inspectores.trabajadores_id = trabajadores.trabajadores_id
+            AND UPPER(TRIM(inspectores.inspector_estado)) = 'ACTIVO' AND inspectores.id_inspectores <> :exclude))
+        OR trabajadores.trabajadores_id = :actual
+    ORDER BY personal.personal_apellido, personal.personal_nombre");
+$consulta->execute([
+    ':exclude' => (int)($inspectorData['id_inspectores'] ?? 0),
+    ':actual' => (int)($inspectorData['trabajadores_id'] ?? 0),
+]);
+$listaTrabajadores = $consulta->fetchAll();
 ?>
 
 <div class="container-fluid">
@@ -73,13 +62,13 @@ $listaPersonal = $stP->fetchAll();
                 <input type="hidden" name="id_inspectores" value="<?= (int)$inspectorData['id_inspectores'] ?>">
                 <?php endif; ?>
                 <div class="form-group">
-                    <label for="id_personal">Personal <span class="text-danger">*</span></label>
-                    <select name="id_personal" id="id_personal" class="form-control" required>
+                    <label for="trabajadores_id">Trabajador <span class="text-danger">*</span></label>
+                    <select name="trabajadores_id" id="trabajadores_id" class="form-control" required>
                         <option value="">Seleccione...</option>
-                        <?php foreach ($listaPersonal as $p): ?>
-                        <option value="<?= (int)$p['id_personal'] ?>"
-                            <?= $isEdit && (int)$inspectorData['id_personal'] === (int)$p['id_personal'] ? 'selected' : '' ?>>
-                            <?= htmlspecialchars($p['nombre_completo']) ?>
+                        <?php foreach ($listaTrabajadores as $p): ?>
+                        <option value="<?= (int)$p['trabajadores_id'] ?>"
+                            <?= $isEdit && (int)$inspectorData['trabajadores_id'] === (int)$p['trabajadores_id'] ? 'selected' : '' ?>>
+                            <?= htmlspecialchars(trim($p['personal_nombre'] . ' ' . $p['personal_apellido'])) ?>
                         </option>
                         <?php endforeach; ?>
                     </select>
@@ -98,7 +87,10 @@ $listaPersonal = $stP->fetchAll();
                     </select>
                 </div>
                 <?php endif; ?>
-                <button type="submit" class="btn btn-primary">Guardar</button>
+                <?php if (!$listaTrabajadores): ?>
+                <div class="alert alert-warning">No hay trabajadores activos disponibles. Registre uno antes de crear el inspector.</div>
+                <?php endif; ?>
+                <button type="submit" class="btn btn-primary" <?= !$listaTrabajadores ? 'disabled' : '' ?>>Guardar</button>
                 <a href="view.php" class="btn btn-secondary">Cancelar</a>
             </form>
         </div>

@@ -191,7 +191,7 @@ try {
             'nr'        => ((int) $cab['fac_remision'] === 1) ? $cab['id_nota_remision_compra'] : null,
         ],
         [
-            'razon'    => 'Emmanuels',
+            'razon'    => 'DomiPizzas',
             'ruc'      => '',
             'direccion'=> 'Ruta Departamental D027, San Lorenzo - Paraguay',
             'sucursal' => $cab['sucursal'],
